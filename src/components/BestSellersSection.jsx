@@ -7,7 +7,7 @@ export default function BestSellersSection() {
   const bestSellers = products.filter(p => p.bestSeller).slice(0, 4);
 
   return (
-    <section className="section">
+    <section className="section" id="best-sellers">
       <div className="container">
         <div className="section__header">
           <h2 className="section__title">Best sellers</h2>

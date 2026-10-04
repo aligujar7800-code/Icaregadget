@@ -38,6 +38,10 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--text);
@@ -114,13 +118,30 @@ button {
 }
 
 .announcement-bar__track {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   animation: marquee 30s linear infinite;
+  will-change: transform;
 }
 
-.announcement-bar__text {
+.announcement-bar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--white);
+  flex-shrink: 0;
+}
+
+.announcement-bar__icon {
+  flex-shrink: 0;
+  color: var(--white);
+  stroke: currentColor;
+}
+
+.announcement-bar__divider {
   display: inline-block;
-  padding-right: 60px;
+  margin: 0 20px;
+  opacity: 0.45;
 }
 
 @keyframes marquee {
@@ -203,10 +224,70 @@ button {
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
+  white-space: nowrap;
 }
 
 .hero__video-btn {
-  box-shadow: 0 4px 20px rgba(255, 106, 0, 0.4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+  animation: ambientGlowPulse 2.8s ease-in-out infinite;
+  transition: transform var(--motion-fast) var(--ease-standard),
+              box-shadow var(--motion-fast) var(--ease-standard),
+              background-color var(--motion-fast) var(--ease-standard);
+}
+
+/* Option 1: Ambient Radar Pulse Ring */
+.hero__video-btn::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 2px solid var(--orange);
+  animation: radarPulse 2.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.hero__video-btn:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 30px rgba(255, 106, 0, 0.65);
+}
+
+.hero__video-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.hero__video-icon {
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+
+.hero__video-btn:hover .hero__video-icon {
+  transform: rotate(-12deg) scale(1.15);
+}
+
+@keyframes radarPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  65%, 100% {
+    transform: scale(1.22, 1.38);
+    opacity: 0;
+  }
+}
+
+@keyframes ambientGlowPulse {
+  0%, 100% {
+    box-shadow: 0 4px 18px rgba(255, 106, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 6px 26px rgba(255, 106, 0, 0.65);
+  }
 }
 
 /* Footer Social Icons */
@@ -349,6 +430,106 @@ button {
   margin-bottom: var(--space-4);
 }
 
+/* 3D Rolling Slot / Flip Reel */
+.hero__slot-wrapper {
+  display: inline-block;
+  position: relative;
+  height: 1.15em;
+  vertical-align: bottom;
+  perspective: 800px;
+  overflow: hidden;
+}
+
+.hero__slot-word {
+  display: block;
+  white-space: nowrap;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+  line-height: 1.15em;
+  transform-origin: 50% 50% -30px;
+}
+
+.hero__slot-dot {
+  color: var(--orange);
+}
+
+.hero__slot-word--active {
+  transform: translateY(0) rotateX(0deg);
+  opacity: 1;
+}
+
+.hero__slot-word--exit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: slotRollOut 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.hero__slot-word--enter {
+  animation: slotRollIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slotRollOut {
+  0% {
+    transform: translateY(0%) rotateX(0deg);
+    opacity: 1;
+    filter: blur(0px);
+  }
+  100% {
+    transform: translateY(-110%) rotateX(80deg);
+    opacity: 0;
+    filter: blur(2px);
+  }
+}
+
+@keyframes slotRollIn {
+  0% {
+    transform: translateY(110%) rotateX(-80deg);
+    opacity: 0;
+    filter: blur(2px);
+  }
+  100% {
+    transform: translateY(0%) rotateX(0deg);
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
+/* Option 2: Multi-Word Rotating Typewriter */
+.hero__typewriter-wrapper {
+  display: inline-flex;
+  align-items: baseline;
+  min-height: 1.15em;
+  white-space: nowrap;
+}
+
+.hero__typewriter-text {
+  color: var(--white);
+  font-weight: 800;
+}
+
+.hero__typewriter-dot {
+  color: var(--orange);
+}
+
+.hero__typewriter-cursor {
+  display: inline-block;
+  color: var(--orange);
+  font-weight: 300;
+  margin-left: 2px;
+  animation: cursorBlink 0.85s infinite;
+  user-select: none;
+}
+
+@keyframes cursorBlink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
 .hero__text {
   color: #a3a3a3;
   font-size: 1.125rem;
@@ -360,7 +541,102 @@ button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
+}
+
+.hero__action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--white);
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  text-decoration: none;
+  transition: background-color var(--motion-standard) var(--ease-standard),
+              border-color var(--motion-standard) var(--ease-standard),
+              transform var(--motion-standard) var(--ease-standard),
+              box-shadow var(--motion-standard) var(--ease-standard);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.hero__action-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--orange);
+  color: var(--white);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 18px rgba(255, 106, 0, 0.22);
+}
+
+.hero__action-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* 1. Text Roll: Move up and come from below */
+.hero__action-text-wrapper {
+  display: inline-block;
+  overflow: hidden;
+  height: 1.3em;
+  position: relative;
+  vertical-align: middle;
+}
+
+.hero__action-text {
+  display: block;
+  height: 1.3em;
+  line-height: 1.3em;
+  white-space: nowrap;
+  transition: transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.hero__action-btn:hover .hero__action-text {
+  transform: translateY(-100%);
+}
+
+/* 2. Arrow Roll: Move right and come from left */
+.hero__action-arrow-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 15px;
+  height: 15px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.hero__action-arrow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 15px;
+  height: 15px;
+  color: var(--orange);
+  flex-shrink: 0;
+  transition: transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.hero__action-arrow--primary {
+  transform: translateX(0%);
+}
+
+.hero__action-arrow--clone {
+  transform: translateX(-140%);
+}
+
+.hero__action-btn:hover .hero__action-arrow--primary {
+  transform: translateX(140%);
+}
+
+.hero__action-btn:hover .hero__action-arrow--clone {
+  transform: translateX(0%);
 }
 
 .btn {
@@ -494,6 +770,67 @@ button {
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.3;
+}
+
+/* Trust Benefits Scroll Animations */
+.dollar-curve {
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+  transition: stroke-dashoffset 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dollar-line {
+  stroke-dasharray: 25;
+  stroke-dashoffset: 25;
+  transition: stroke-dashoffset 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) 0.65s;
+}
+
+.trust--active .dollar-curve {
+  stroke-dashoffset: 0;
+}
+
+.trust--active .dollar-line {
+  stroke-dashoffset: 0;
+}
+
+/* Shield Tick Animation */
+.shield-outline {
+  stroke-dasharray: 80;
+  stroke-dashoffset: 80;
+  transition: stroke-dashoffset 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shield-tick {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  transition: stroke-dashoffset 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.65s,
+              transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.85s;
+  transform-origin: 12px 13px;
+}
+
+.trust--active .shield-outline {
+  stroke-dashoffset: 0;
+}
+
+.trust--active .shield-tick {
+  stroke-dashoffset: 0;
+}
+
+/* Customers Counter & Icon */
+.trust__counter {
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  font-weight: 700;
+}
+
+.trust--active .trust__icon--customers svg {
+  animation: customerPop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s both;
+}
+
+@keyframes customerPop {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  60% { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 @media (min-width: 768px) {
