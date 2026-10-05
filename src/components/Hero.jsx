@@ -63,7 +63,9 @@ export default function Hero() {
           autoPlay
           loop
           muted
+          defaultMuted
           playsInline
+          webkit-playsinline="true"
           poster="/hero-image.jpg"
           className="hero__video-bg-media"
         >

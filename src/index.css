@@ -1478,13 +1478,14 @@ button {
 @media (max-width: 768px) {
   /* Hero Video Optimization */
   .hero {
-    min-height: auto;
-    padding-top: 140px;
+    min-height: 85vh;
+    padding-top: 100px;
     padding-bottom: 60px;
   }
   .hero__video-bg-media {
-    object-fit: cover;
-    height: 100vh !important;
+    object-fit: cover !important;
+    height: 100% !important;
+    object-position: center center !important;
   }
   .hero__title {
     font-size: 2.75rem;
