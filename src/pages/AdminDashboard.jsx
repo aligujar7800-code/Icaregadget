@@ -190,9 +190,9 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 80px)', backgroundColor: '#f3f4f6' }}>
+    <div className="admin-layout" style={{ display: 'flex', minHeight: 'calc(100vh - 80px)', backgroundColor: '#f3f4f6' }}>
       {/* Sidebar */}
-      <aside style={{ width: '260px', backgroundColor: '#111827', color: 'white', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      <aside className="admin-sidebar" style={{ width: '260px', backgroundColor: '#111827', color: 'white', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '24px', borderBottom: '1px solid #374151' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Admin Dashboard</h2>
         </div>
@@ -238,8 +238,8 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main Content */}
-      <main style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+      <main className="admin-main" style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
+        <header className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
           <div>
             <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>
               {activeTab === 'products' && 'Products Management'}

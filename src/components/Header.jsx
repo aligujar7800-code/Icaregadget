@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 
 export default function Header() {
-  const { user, cart, setIsCartOpen, categories } = useStore();
+  const { user, cart, setIsCartOpen, categories, setIsMobileMenuOpen } = useStore();
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeDropdown, setActiveDropdown] = useState(null);
@@ -105,7 +105,7 @@ export default function Header() {
         </div>
 
         <div className="header__left">
-          <button className="mobile-menu-btn" aria-label="Open menu">
+          <button className="mobile-menu-btn" aria-label="Open menu" onClick={() => setIsMobileMenuOpen(true)}>
             <svg className="icon" viewBox="0 0 24 24">
               <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>

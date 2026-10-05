@@ -39,7 +39,7 @@ export default function ProductQuickView() {
         borderRadius: '4px', display: 'flex', position: 'relative', overflow: 'hidden',
         color: 'white', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
       }}>
-        <button onClick={handleClose} style={{
+        <button className="quickview-close" onClick={handleClose} style={{
           position: 'absolute', top: '16px', right: '16px', zIndex: 20,
           background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer',
           padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -51,10 +51,10 @@ export default function ProductQuickView() {
         </button>
 
         {/* Left: Gallery & Main Image */}
-        <div style={{ flex: '1.2', display: 'flex', backgroundColor: '#ffffff', position: 'relative' }}>
+        <div className="quickview-gallery" style={{ flex: '1.2', display: 'flex', backgroundColor: '#ffffff', position: 'relative' }}>
           {/* Thumbnails Sidebar */}
           {images.length > 1 && (
-            <div className="hide-scrollbar" style={{ 
+            <div className="hide-scrollbar quickview-thumbnails" style={{ 
               width: '100px', padding: '24px 16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px',
               backgroundColor: '#0a0a0a', borderRight: '1px solid #1f2937'
             }}>
@@ -69,6 +69,7 @@ export default function ProductQuickView() {
                     transition: 'opacity 0.2s',
                     height: '80px', width: '100%'
                   }}
+                  className="quickview-thumbnail-btn"
                   onMouseEnter={e => e.currentTarget.style.opacity = 1}
                   onMouseLeave={e => { if(activeImage !== i) e.currentTarget.style.opacity = 0.5 }}
                 >
@@ -78,7 +79,7 @@ export default function ProductQuickView() {
             </div>
           )}
           {/* Main Image */}
-          <div style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', position: 'relative' }}>
+          <div className="quickview-main-image" style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', position: 'relative' }}>
             {selectedProduct.sale && (
               <div style={{ position: 'absolute', top: '24px', left: '24px', backgroundColor: '#ef4444', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 12px', letterSpacing: '1px' }}>
                 SALE
@@ -93,16 +94,16 @@ export default function ProductQuickView() {
         </div>
 
         {/* Right: Details Section */}
-        <div style={{ 
+        <div className="quickview-details custom-scrollbar" style={{ 
           width: '450px', padding: '48px 40px', display: 'flex', flexDirection: 'column', 
           backgroundColor: '#0a0a0a', overflowY: 'auto', position: 'relative'
-        }} className="custom-scrollbar">
+        }}>
           
           <h2 style={{ fontSize: '1.75rem', fontWeight: '400', margin: '0 0 16px 0', fontFamily: 'inherit', letterSpacing: '0.02em', lineHeight: '1.2' }}>
             {selectedProduct.name}
           </h2>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '1.25rem', color: '#fff', fontWeight: '500' }}>
               {selectedProduct.price}
             </span>

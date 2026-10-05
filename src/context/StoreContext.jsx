@@ -78,6 +78,7 @@ export const StoreProvider = ({ children }) => {
   });
 
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   useEffect(() => { try { localStorage.setItem('user', JSON.stringify(user)); } catch(e){} }, [user]);
@@ -200,6 +201,7 @@ export const StoreProvider = ({ children }) => {
       orders, placeOrder,
       cart, addToCart, removeFromCart, updateQuantity, clearCart,
       isCartOpen, setIsCartOpen,
+      isMobileMenuOpen, setIsMobileMenuOpen,
       selectedProduct, setSelectedProduct
     }}>
       {children}

@@ -1474,6 +1474,71 @@ button {
   animation: scale-pop var(--motion-fast) var(--ease-enter);
 }
 
+/* Mobile Responsiveness Overrides */
+@media (max-width: 768px) {
+  /* Hero Video Optimization */
+  .hero {
+    min-height: auto;
+    padding-top: 140px;
+    padding-bottom: 60px;
+  }
+  .hero__video-bg-media {
+    object-fit: cover;
+    height: 100vh !important;
+  }
+  .hero__title {
+    font-size: 2.75rem;
+  }
+  
+  /* Quick View Modal Optimization */
+  .quickview-modal {
+    flex-direction: column !important;
+    height: 90vh !important;
+    max-height: none !important;
+  }
+  .quickview-gallery {
+    flex-direction: column-reverse;
+    flex: 0 0 auto !important;
+  }
+  .quickview-thumbnails {
+    width: 100% !important;
+    height: 80px;
+    flex-direction: row !important;
+    padding: 12px !important;
+    border-right: none !important;
+    border-top: 1px solid #1f2937;
+  }
+  .quickview-thumbnail-btn {
+    width: 80px !important;
+    height: 100% !important;
+    flex-shrink: 0;
+  }
+  .quickview-main-image {
+    padding: 20px !important;
+    min-height: 250px;
+  }
+  .quickview-details {
+    width: 100% !important;
+    padding: 24px 20px !important;
+  }
+  
+  /* Admin Dashboard Optimization */
+  .admin-layout {
+    flex-direction: column !important;
+  }
+  .admin-sidebar {
+    width: 100% !important;
+  }
+  .admin-main {
+    padding: 20px !important;
+  }
+  .admin-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 16px;
+  }
+}
+
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   *,

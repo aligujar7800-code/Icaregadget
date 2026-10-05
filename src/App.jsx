@@ -17,6 +17,7 @@ import LoginPage from './pages/LoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 import { StoreProvider } from './context/StoreContext';
 import CartSidebar from './components/CartSidebar';
+import MobileNavSidebar from './components/MobileNavSidebar';
 import ProductQuickView from './components/ProductQuickView';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -28,6 +29,7 @@ function App() {
           <AnnouncementBar />
           <Header />
           <CartSidebar />
+          <MobileNavSidebar />
           <ProductQuickView />
           <Routes>
             <Route path="/" element={<HomePage />} />
