@@ -346,6 +346,28 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteDestination = async (tag, email) => {
+    if (!window.confirm(`Are you sure you want to delete ${email} from Cloudflare?`)) {
+      return;
+    }
+    setCfActionLoading(true);
+    setCfError('');
+    setCfSuccess('');
+    try {
+      const res = await fetch(`/api/admin/email-routing/destination/${tag}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete address');
+      setCfSuccess(`Deleted ${email} from Cloudflare successfully.`);
+      await fetchEmailRouting();
+    } catch (err) {
+      setCfError(err.message || 'Failed to delete destination address.');
+    } finally {
+      setCfActionLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -1090,7 +1112,7 @@ export default function AdminDashboard() {
                             </div>
                           </div>
 
-                          <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {isActive ? (
                               <span style={{
                                 padding: '6px 12px',
@@ -1130,6 +1152,34 @@ export default function AdminDashboard() {
                               }}>
                                 Check Inbox
                               </span>
+                            )}
+
+                            {!isActive && (
+                              <button
+                                type="button"
+                                title={`Delete ${addr.email} from Cloudflare`}
+                                disabled={cfActionLoading}
+                                onClick={() => handleDeleteDestination(addr.tag || addr.id, addr.email)}
+                                style={{
+                                  padding: '6px 10px',
+                                  backgroundColor: '#fee2e2',
+                                  color: '#dc2626',
+                                  border: '1px solid #fecaca',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '600',
+                                  cursor: cfActionLoading ? 'default' : 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  transition: 'background-color 0.15s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fca5a5'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Delete
+                              </button>
                             )}
                           </div>
                         </div>

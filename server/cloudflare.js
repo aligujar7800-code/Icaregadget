@@ -253,3 +253,31 @@ export async function activateForwardingRule(targetDestinationEmail) {
     currentForwardTo: cleanEmail
   };
 }
+
+/**
+ * Delete a destination email address from Cloudflare
+ */
+export async function deleteDestinationAddress(addressTag) {
+  if (!isCloudflareConfigured()) {
+    throw new Error('Cloudflare is not configured in .env');
+  }
+
+  const headers = getCloudflareHeaders();
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+
+  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/email/routing/addresses/${addressTag}`, {
+    method: 'DELETE',
+    headers
+  });
+
+  const data = await res.json();
+  if (!data.success) {
+    const msg = data.errors?.[0]?.message || 'Failed to delete destination address from Cloudflare';
+    throw new Error(msg);
+  }
+
+  return {
+    success: true,
+    message: 'Destination address deleted from Cloudflare successfully.'
+  };
+}

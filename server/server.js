@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool, initDB } from './db.js';
 import { sendOtpEmail, generateOtp } from './mailer.js';
-import { getEmailRoutingInfo, addDestinationAddress, activateForwardingRule } from './cloudflare.js';
+import { getEmailRoutingInfo, addDestinationAddress, activateForwardingRule, deleteDestinationAddress } from './cloudflare.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -510,6 +510,20 @@ app.post('/api/admin/email-routing/activate-destination', async (req, res) => {
   } catch (err) {
     console.error('Error activating forwarding rule:', err);
     res.status(500).json({ error: err.message || 'Failed to activate forwarding rule' });
+  }
+});
+
+app.delete('/api/admin/email-routing/destination/:tag', async (req, res) => {
+  try {
+    const { tag } = req.params;
+    if (!tag) {
+      return res.status(400).json({ error: 'Address tag is required' });
+    }
+    const result = await deleteDestinationAddress(tag);
+    res.json(result);
+  } catch (err) {
+    console.error('Error deleting destination address:', err);
+    res.status(500).json({ error: err.message || 'Failed to delete destination address' });
   }
 });
 
