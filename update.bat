@@ -1,11 +1,18 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Switch to script directory
-cd /d "%~dp0"
+:: Prevent self-modifying batch corruption when git pull modifies update.bat
+if "%~1" neq "__RUNNER__" (
+    copy /y "%~f0" "%TEMP%\_icare_updater.bat" >nul
+    call "%TEMP%\_icare_updater.bat" __RUNNER__ "%~dp0"
+    exit /b %ERRORLEVEL%
+)
+
+:: Switch to project directory
+cd /d "%~2"
 
 echo ========================================================
-echo           ICARE GADGET - RDP UPDATE & DEPLOY
+echo          ICARE GADGET - RDP UPDATE AND DEPLOY
 echo ========================================================
 echo.
 
