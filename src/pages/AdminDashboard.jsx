@@ -44,6 +44,20 @@ export default function AdminDashboard() {
   const [pwdSuccess, setPwdSuccess] = useState('');
   const [pwdCountdown, setPwdCountdown] = useState(0);
 
+  // Cloudflare Email Routing state
+  const [cfRouting, setCfRouting] = useState({
+    isConfigured: false,
+    adminEmail: 'admin@icaregadget.store',
+    currentForwardTo: '',
+    ruleEnabled: false,
+    addresses: []
+  });
+  const [cfLoading, setCfLoading] = useState(false);
+  const [cfError, setCfError] = useState('');
+  const [cfSuccess, setCfSuccess] = useState('');
+  const [newDestinationEmail, setNewDestinationEmail] = useState('');
+  const [cfActionLoading, setCfActionLoading] = useState(false);
+
   useEffect(() => {
     let timer;
     if (pwdCountdown > 0) {
@@ -259,6 +273,76 @@ export default function AdminDashboard() {
       setPwdError('Network error updating password.');
     } finally {
       setPwdLoading(false);
+    }
+  };
+
+  const fetchEmailRouting = async () => {
+    try {
+      setCfLoading(true);
+      setCfError('');
+      const res = await fetch('/api/admin/email-routing');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch email routing');
+      setCfRouting(data);
+    } catch (err) {
+      console.error(err);
+      setCfError(err.message || 'Error fetching email routing');
+    } finally {
+      setCfLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'security') {
+      fetchEmailRouting();
+    }
+  }, [activeTab]);
+
+  const handleAddDestination = async (e) => {
+    e.preventDefault();
+    if (!newDestinationEmail || !newDestinationEmail.includes('@')) {
+      setCfError('Please enter a valid destination email address.');
+      return;
+    }
+    setCfActionLoading(true);
+    setCfError('');
+    setCfSuccess('');
+    try {
+      const res = await fetch('/api/admin/email-routing/add-destination', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newDestinationEmail.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add destination address');
+      setCfSuccess(data.message || 'Verification email sent by Cloudflare!');
+      setNewDestinationEmail('');
+      await fetchEmailRouting();
+    } catch (err) {
+      setCfError(err.message || 'Failed to add destination email.');
+    } finally {
+      setCfActionLoading(false);
+    }
+  };
+
+  const handleActivateDestination = async (targetEmail) => {
+    setCfActionLoading(true);
+    setCfError('');
+    setCfSuccess('');
+    try {
+      const res = await fetch('/api/admin/email-routing/activate-destination', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to activate forwarding rule');
+      setCfSuccess(data.message || 'Forwarding rule activated successfully!');
+      await fetchEmailRouting();
+    } catch (err) {
+      setCfError(err.message || 'Failed to activate forwarding rule.');
+    } finally {
+      setCfActionLoading(false);
     }
   };
 
@@ -677,153 +761,385 @@ export default function AdminDashboard() {
 
         {/* ===== SECURITY & PASSWORD TAB ===== */}
         {activeTab === 'security' && (
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', maxWidth: '560px' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '8px', color: '#111827' }}>Change Admin Password</h2>
-            <p style={{ color: '#6b7280', marginBottom: '24px', fontSize: '0.875rem', lineHeight: '1.5' }}>
-              To update your password, enter your existing password below. A 6-digit verification code will be sent to <strong>admin@icaregadget.store</strong> to authorize the change.
-            </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '32px', alignItems: 'start' }}>
+            
+            {/* Card 1: Change Admin Password */}
+            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '8px', color: '#111827' }}>Change Admin Password</h2>
+              <p style={{ color: '#6b7280', marginBottom: '24px', fontSize: '0.875rem', lineHeight: '1.5' }}>
+                To update your password, enter your existing password below. A 6-digit verification code will be sent to <strong>admin@icaregadget.store</strong> to authorize the change.
+              </p>
 
-            {pwdError && (
-              <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '12px 16px', borderRadius: '8px', fontSize: '0.875rem', marginBottom: '20px' }}>
-                {pwdError}
-              </div>
-            )}
-
-            {pwdSuccess && (
-              <div style={{ backgroundColor: '#dcfce7', color: '#15803d', padding: '12px 16px', borderRadius: '8px', fontSize: '0.875rem', marginBottom: '20px' }}>
-                {pwdSuccess}
-              </div>
-            )}
-
-            {passwordStep === 'input' ? (
-              <form onSubmit={handleRequestPasswordOtp} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                  <label style={labelStyle}>Current Password *</label>
-                  <input 
-                    type="password" 
-                    value={currentPassword} 
-                    onChange={e => setCurrentPassword(e.target.value)} 
-                    style={inputStyle} 
-                    placeholder="Enter current password (default: admin123)"
-                    required 
-                    onFocus={focusHandler} 
-                    onBlur={blurHandler} 
-                  />
+              {pwdError && (
+                <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '12px 16px', borderRadius: '8px', fontSize: '0.875rem', marginBottom: '20px' }}>
+                  {pwdError}
                 </div>
+              )}
 
-                <div>
-                  <label style={labelStyle}>New Password *</label>
-                  <input 
-                    type="password" 
-                    value={newPassword} 
-                    onChange={e => setNewPassword(e.target.value)} 
-                    style={inputStyle} 
-                    placeholder="Minimum 6 characters"
-                    required 
-                    minLength={6}
-                    onFocus={focusHandler} 
-                    onBlur={blurHandler} 
-                  />
+              {pwdSuccess && (
+                <div style={{ backgroundColor: '#dcfce7', color: '#15803d', padding: '12px 16px', borderRadius: '8px', fontSize: '0.875rem', marginBottom: '20px' }}>
+                  {pwdSuccess}
                 </div>
+              )}
 
-                <div>
-                  <label style={labelStyle}>Confirm New Password *</label>
-                  <input 
-                    type="password" 
-                    value={confirmPassword} 
-                    onChange={e => setConfirmPassword(e.target.value)} 
-                    style={inputStyle} 
-                    placeholder="Re-enter new password"
-                    required 
-                    minLength={6}
-                    onFocus={focusHandler} 
-                    onBlur={blurHandler} 
-                  />
-                </div>
+              {passwordStep === 'input' ? (
+                <form onSubmit={handleRequestPasswordOtp} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div>
+                    <label style={labelStyle}>Current Password *</label>
+                    <input 
+                      type="password" 
+                      value={currentPassword} 
+                      onChange={e => setCurrentPassword(e.target.value)} 
+                      style={inputStyle} 
+                      placeholder="Enter current password (default: admin123)"
+                      required 
+                      onFocus={focusHandler} 
+                      onBlur={blurHandler} 
+                    />
+                  </div>
 
-                <button 
-                  type="submit" 
-                  disabled={pwdLoading}
-                  style={{ 
-                    padding: '12px 24px', 
-                    backgroundColor: 'var(--orange)', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '8px', 
-                    fontWeight: 'bold', 
-                    cursor: pwdLoading ? 'default' : 'pointer', 
-                    alignSelf: 'flex-start', 
-                    marginTop: '8px',
-                    transition: 'opacity 0.2s' 
-                  }}
-                >
-                  {pwdLoading ? 'Sending Verification Code...' : 'Send Verification Code'}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleConfirmPasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fed7aa', padding: '16px', borderRadius: '8px' }}>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#c2410c' }}>
-                    Enter the 6-digit code sent to <strong>admin@icaregadget.store</strong> to confirm changing your password.
-                  </p>
-                </div>
+                  <div>
+                    <label style={labelStyle}>New Password *</label>
+                    <input 
+                      type="password" 
+                      value={newPassword} 
+                      onChange={e => setNewPassword(e.target.value)} 
+                      style={inputStyle} 
+                      placeholder="Minimum 6 characters"
+                      required 
+                      minLength={6}
+                      onFocus={focusHandler} 
+                      onBlur={blurHandler} 
+                    />
+                  </div>
 
-                <div>
-                  <label style={labelStyle}>6-Digit Verification Code *</label>
-                  <input 
-                    type="text" 
-                    maxLength={6}
-                    value={passwordOtp} 
-                    onChange={e => setPasswordOtp(e.target.value.replace(/[^0-9]/g, ''))} 
-                    style={{ 
-                      ...inputStyle, 
-                      textAlign: 'center', 
-                      fontSize: '1.5rem', 
-                      fontWeight: '800', 
-                      letterSpacing: '6px',
-                      fontFamily: 'monospace'
-                    }} 
-                    placeholder="------"
-                    required 
-                    autoFocus
-                  />
-                </div>
+                  <div>
+                    <label style={labelStyle}>Confirm New Password *</label>
+                    <input 
+                      type="password" 
+                      value={confirmPassword} 
+                      onChange={e => setConfirmPassword(e.target.value)} 
+                      style={inputStyle} 
+                      placeholder="Re-enter new password"
+                      required 
+                      minLength={6}
+                      onFocus={focusHandler} 
+                      onBlur={blurHandler} 
+                    />
+                  </div>
 
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <button 
                     type="submit" 
                     disabled={pwdLoading}
                     style={{ 
                       padding: '12px 24px', 
-                      backgroundColor: '#16a34a', 
+                      backgroundColor: 'var(--orange)', 
                       color: 'white', 
                       border: 'none', 
                       borderRadius: '8px', 
                       fontWeight: 'bold', 
-                      cursor: pwdLoading ? 'default' : 'pointer' 
+                      cursor: pwdLoading ? 'default' : 'pointer', 
+                      alignSelf: 'flex-start', 
+                      marginTop: '8px',
+                      transition: 'opacity 0.2s' 
                     }}
                   >
-                    {pwdLoading ? 'Updating Password...' : 'Confirm & Update Password'}
+                    {pwdLoading ? 'Sending Verification Code...' : 'Send Verification Code'}
                   </button>
+                </form>
+              ) : (
+                <form onSubmit={handleConfirmPasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fed7aa', padding: '16px', borderRadius: '8px' }}>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#c2410c' }}>
+                      Enter the 6-digit code sent to <strong>admin@icaregadget.store</strong> to confirm changing your password.
+                    </p>
+                  </div>
 
+                  <div>
+                    <label style={labelStyle}>6-Digit Verification Code *</label>
+                    <input 
+                      type="text" 
+                      maxLength={6}
+                      value={passwordOtp} 
+                      onChange={e => setPasswordOtp(e.target.value.replace(/[^0-9]/g, ''))} 
+                      style={{ 
+                        ...inputStyle, 
+                        textAlign: 'center', 
+                        fontSize: '1.5rem', 
+                        fontWeight: '800', 
+                        letterSpacing: '6px',
+                        fontFamily: 'monospace'
+                      }} 
+                      placeholder="------"
+                      required 
+                      autoFocus
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button 
+                      type="submit" 
+                      disabled={pwdLoading}
+                      style={{ 
+                        padding: '12px 24px', 
+                        backgroundColor: '#16a34a', 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: '8px', 
+                        fontWeight: 'bold', 
+                        cursor: pwdLoading ? 'default' : 'pointer' 
+                      }}
+                    >
+                      {pwdLoading ? 'Updating Password...' : 'Confirm & Update Password'}
+                    </button>
+
+                    <button 
+                      type="button" 
+                      onClick={() => { setPasswordStep('input'); setPasswordOtp(''); setPwdError(''); setPwdSuccess(''); }}
+                      style={{ 
+                        padding: '12px 18px', 
+                        backgroundColor: '#f3f4f6', 
+                        color: '#4b5563', 
+                        border: 'none', 
+                        borderRadius: '8px', 
+                        fontWeight: '600', 
+                        cursor: 'pointer' 
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {/* Card 2: Cloudflare Email Routing & Forwarding */}
+            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>
+                  Email Forwarding (Cloudflare)
+                </h2>
+                <button 
+                  type="button" 
+                  onClick={fetchEmailRouting}
+                  disabled={cfLoading}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '6px 12px', backgroundColor: '#f3f4f6', color: '#374151',
+                    border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '0.8125rem',
+                    fontWeight: '600', cursor: cfLoading ? 'default' : 'pointer'
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: cfLoading ? 'spin 1s linear infinite' : 'none' }}>
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+
+              <p style={{ color: '#6b7280', marginBottom: '20px', fontSize: '0.875rem', lineHeight: '1.5' }}>
+                All 2FA login & security verification codes are sent to <strong>{cfRouting.adminEmail || 'admin@icaregadget.store'}</strong>. Cloudflare automatically forwards them to the active destination address below.
+              </p>
+
+              {/* Active Forwarding Banner */}
+              <div style={{
+                backgroundColor: cfRouting.currentForwardTo ? '#f0fdf4' : '#fffbeb',
+                border: `1px solid ${cfRouting.currentForwardTo ? '#bbf7d0' : '#fef3c7'}`,
+                borderRadius: '10px',
+                padding: '16px 20px',
+                marginBottom: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: cfRouting.currentForwardTo ? '#15803d' : '#b45309', marginBottom: '4px' }}>
+                    Active Forwarding Destination
+                  </div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#111827' }}>
+                    {cfRouting.currentForwardTo || 'No forwarding rule configured'}
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: '#6b7280', marginTop: '2px' }}>
+                    {cfRouting.adminEmail || 'admin@icaregadget.store'} &rarr; {cfRouting.currentForwardTo || 'none'}
+                  </div>
+                </div>
+                <span style={{
+                  padding: '4px 10px',
+                  borderRadius: '9999px',
+                  fontSize: '0.75rem',
+                  fontWeight: '700',
+                  backgroundColor: cfRouting.currentForwardTo ? '#dcfce7' : '#fef3c7',
+                  color: cfRouting.currentForwardTo ? '#15803d' : '#92400e',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: cfRouting.currentForwardTo ? '#22c55e' : '#f59e0b' }}></span>
+                  {cfRouting.currentForwardTo ? 'Active & Receiving' : 'Not Active'}
+                </span>
+              </div>
+
+              {cfError && (
+                <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '12px 16px', borderRadius: '8px', fontSize: '0.875rem', marginBottom: '20px' }}>
+                  {cfError}
+                </div>
+              )}
+
+              {cfSuccess && (
+                <div style={{ backgroundColor: '#dcfce7', color: '#15803d', padding: '12px 16px', borderRadius: '8px', fontSize: '0.875rem', marginBottom: '20px' }}>
+                  {cfSuccess}
+                </div>
+              )}
+
+              {/* Form: Add New Destination Address */}
+              <form onSubmit={handleAddDestination} style={{ marginBottom: '28px' }}>
+                <label style={labelStyle}>Add New Destination Email</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <input 
+                    type="email" 
+                    value={newDestinationEmail} 
+                    onChange={e => setNewDestinationEmail(e.target.value)} 
+                    placeholder="e.g. newadmin@gmail.com"
+                    style={{ ...inputStyle, flex: 1, minWidth: '220px' }}
+                    required
+                    onFocus={focusHandler}
+                    onBlur={blurHandler}
+                  />
                   <button 
-                    type="button" 
-                    onClick={() => { setPasswordStep('input'); setPasswordOtp(''); setPwdError(''); setPwdSuccess(''); }}
-                    style={{ 
-                      padding: '12px 18px', 
-                      backgroundColor: '#f3f4f6', 
-                      color: '#4b5563', 
-                      border: 'none', 
-                      borderRadius: '8px', 
-                      fontWeight: '600', 
-                      cursor: 'pointer' 
+                    type="submit" 
+                    disabled={cfActionLoading || cfLoading}
+                    style={{
+                      padding: '10px 18px',
+                      backgroundColor: 'var(--black)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: '600',
+                      cursor: (cfActionLoading || cfLoading) ? 'default' : 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'background-color 0.2s'
                     }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--orange)'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--black)'}
                   >
-                    Cancel
+                    {cfActionLoading ? 'Sending...' : 'Add Destination'}
                   </button>
                 </div>
+                <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '6px 0 0', lineHeight: '1.4' }}>
+                  💡 Cloudflare sends an email verification link to that address. Once you click that link, you can activate it below.
+                </p>
               </form>
-            )}
+
+              {/* Registered Destination Addresses in Cloudflare */}
+              <div>
+                <h3 style={{ fontSize: '0.9375rem', fontWeight: 'bold', color: '#374151', marginBottom: '12px' }}>
+                  Cloudflare Registered Destinations ({cfRouting.addresses?.length || 0})
+                </h3>
+
+                {cfLoading ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '0.875rem' }}>
+                    Loading Cloudflare destinations...
+                  </div>
+                ) : (!cfRouting.addresses || cfRouting.addresses.length === 0) ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
+                    No destination addresses registered yet.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {cfRouting.addresses.map(addr => {
+                      const isActive = cfRouting.currentForwardTo?.toLowerCase() === addr.email?.toLowerCase();
+                      const isVerified = Boolean(addr.verified);
+
+                      return (
+                        <div 
+                          key={addr.tag || addr.email}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '12px 16px',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            backgroundColor: isActive ? '#f9fafb' : 'white',
+                            gap: '12px',
+                            flexWrap: 'wrap'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{
+                              width: '32px', height: '32px', borderRadius: '50%',
+                              backgroundColor: isVerified ? '#dcfce7' : '#fef3c7',
+                              color: isVerified ? '#15803d' : '#b45309',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                            }}>
+                              {isVerified ? (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                              ) : (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                              )}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.875rem' }}>
+                                {addr.email}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: isVerified ? '#16a34a' : '#d97706' }}>
+                                {isVerified ? 'Verified in Cloudflare' : 'Pending verification link'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            {isActive ? (
+                              <span style={{
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: '700',
+                                backgroundColor: '#16a34a',
+                                color: 'white'
+                              }}>
+                                Active Rule
+                              </span>
+                            ) : isVerified ? (
+                              <button
+                                type="button"
+                                disabled={cfActionLoading}
+                                onClick={() => handleActivateDestination(addr.email)}
+                                style={{
+                                  padding: '6px 14px',
+                                  backgroundColor: 'var(--orange)',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '0.8125rem',
+                                  fontWeight: '600',
+                                  cursor: cfActionLoading ? 'default' : 'pointer'
+                                }}
+                              >
+                                Activate
+                              </button>
+                            ) : (
+                              <span style={{
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                color: '#9ca3af',
+                                backgroundColor: '#f3f4f6'
+                              }}>
+                                Check Inbox
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
         )}
       </main>

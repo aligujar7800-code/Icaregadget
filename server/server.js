@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool, initDB } from './db.js';
 import { sendOtpEmail, generateOtp } from './mailer.js';
+import { getEmailRoutingInfo, addDestinationAddress, activateForwardingRule } from './cloudflare.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -470,6 +471,45 @@ app.post('/api/admin/change-password', async (req, res) => {
   } catch (err) {
     console.error('Error changing password:', err);
     res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// ==================== CLOUDFLARE EMAIL ROUTING ====================
+app.get('/api/admin/email-routing', async (req, res) => {
+  try {
+    const info = await getEmailRoutingInfo();
+    res.json(info);
+  } catch (err) {
+    console.error('Error in /api/admin/email-routing:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch email routing information' });
+  }
+});
+
+app.post('/api/admin/email-routing/add-destination', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email address is required' });
+    }
+    const result = await addDestinationAddress(email);
+    res.json(result);
+  } catch (err) {
+    console.error('Error adding destination address:', err);
+    res.status(500).json({ error: err.message || 'Failed to add destination address' });
+  }
+});
+
+app.post('/api/admin/email-routing/activate-destination', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email address is required' });
+    }
+    const result = await activateForwardingRule(email);
+    res.json(result);
+  } catch (err) {
+    console.error('Error activating forwarding rule:', err);
+    res.status(500).json({ error: err.message || 'Failed to activate forwarding rule' });
   }
 });
 
