@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 echo ========================================================
-echo           ICARE GADGET - RDP UPDATE AND DEPLOY
+echo           ICARE GADGET - RDP UPDATE & DEPLOY
 echo ========================================================
 echo.
 
@@ -17,9 +17,12 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo [1/5] Pulling latest code from GitHub (origin/main)...
-:: Discard local lockfile changes so pull never conflicts
-git checkout -- package-lock.json >nul 2>&1
-git pull origin main
+git pull origin main --no-rebase --no-edit --allow-unrelated-histories -X theirs
+if %ERRORLEVEL% neq 0 (
+    echo [RETRY] Stashing local modifications and retrying pull...
+    git stash
+    git pull origin main --no-rebase --no-edit --allow-unrelated-histories -X theirs
+)
 if %ERRORLEVEL% neq 0 (
     echo.
     echo [ERROR] Git pull failed. Please check git status or conflicts.
