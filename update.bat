@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 echo ========================================================
-echo           ICARE GADGET - RDP UPDATE & DEPLOY
+echo           ICARE GADGET - RDP UPDATE AND DEPLOY
 echo ========================================================
 echo.
 
@@ -16,7 +16,9 @@ if %ERRORLEVEL% neq 0 (
     set "PM2_CMD=npx pm2"
 )
 
-echo [1/4] Pulling latest code from GitHub (origin/main)...
+echo [1/5] Pulling latest code from GitHub (origin/main)...
+:: Discard local lockfile changes so pull never conflicts
+git checkout -- package-lock.json >nul 2>&1
 git pull origin main
 if %ERRORLEVEL% neq 0 (
     echo.
