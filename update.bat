@@ -24,17 +24,9 @@ if %ERRORLEVEL% neq 0 (
     goto :fail
 )
 
-:: Ensure .env exists in project root on RDP
+:: Check if .env exists
 if not exist ".env" (
-    echo [INFO] Creating .env in project root with RDP MySQL credentials...
-    (
-        echo PORT=3009
-        echo DB_HOST=localhost
-        echo DB_USER=root
-        echo DB_PASSWORD=AzanMalik7860
-        echo DB_NAME=icare_db
-        echo DB_PORT=3306
-    ) > ".env"
+    echo [WARNING] .env file not found! Please paste your .env file in the root directory.
 )
 
 echo.
