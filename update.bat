@@ -24,9 +24,9 @@ if %ERRORLEVEL% neq 0 (
     goto :fail
 )
 
-:: Ensure server/.env exists on RDP
-if not exist "server\.env" (
-    echo [INFO] Creating server\.env with RDP MySQL credentials...
+:: Ensure .env exists in project root on RDP
+if not exist ".env" (
+    echo [INFO] Creating .env in project root with RDP MySQL credentials...
     (
         echo PORT=3009
         echo DB_HOST=localhost
@@ -34,7 +34,7 @@ if not exist "server\.env" (
         echo DB_PASSWORD=AzanMalik7860
         echo DB_NAME=icare_db
         echo DB_PORT=3306
-    ) > "server\.env"
+    ) > ".env"
 )
 
 echo.
