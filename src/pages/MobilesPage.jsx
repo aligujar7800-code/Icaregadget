@@ -15,9 +15,15 @@ export default function MobilesPage() {
           </div>
           
           <div className="product-grid" style={{ marginTop: 'var(--space-6)' }}>
-            {mobileProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {mobileProducts.length > 0 ? (
+              mobileProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))
+            ) : (
+              <p style={{ color: 'var(--muted)', gridColumn: '1 / -1', textAlign: 'center', padding: '40px 0' }}>
+                No products found in this category yet.
+              </p>
+            )}
           </div>
         </div>
       </section>

@@ -15,9 +15,15 @@ export default function SmartHomePage() {
           </div>
           
           <div className="product-grid" style={{ marginTop: 'var(--space-6)' }}>
-            {smartHomeProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {smartHomeProducts.length > 0 ? (
+              smartHomeProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))
+            ) : (
+              <p style={{ color: 'var(--muted)', gridColumn: '1 / -1', textAlign: 'center', padding: '40px 0' }}>
+                No products found in this category yet.
+              </p>
+            )}
           </div>
         </div>
       </section>

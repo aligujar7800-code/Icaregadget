@@ -10,17 +10,17 @@ export default function LoginPage() {
   const { login, register, loginWithGoogle } = useStore();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (isLogin) {
-      const role = login(email, password);
+      const role = await login(email, password);
       if (role === 'admin') {
         navigate('/admin');
       } else {
         navigate('/');
       }
     } else {
-      register(name, email, password);
+      await register(name, email, password);
       navigate('/');
     }
   };

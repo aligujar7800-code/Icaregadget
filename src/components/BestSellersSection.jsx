@@ -6,6 +6,8 @@ export default function BestSellersSection() {
   const { products } = useStore();
   const bestSellers = products.filter(p => p.bestSeller).slice(0, 4);
 
+  if (bestSellers.length === 0) return null;
+
   return (
     <section className="section" id="best-sellers">
       <div className="container">

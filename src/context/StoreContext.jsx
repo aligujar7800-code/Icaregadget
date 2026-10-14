@@ -19,37 +19,7 @@ export const StoreProvider = ({ children }) => {
     };
   });
 
-  const [products, setProducts] = useState(() => {
-    const saved = localStorage.getItem('products');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Migrate old products to support arrays
-      return parsed.map(p => ({ ...p, images: p.images || (p.image ? [p.image] : []), description: p.description || '' }));
-    }
-    return [
-      { id: 101, name: 'iPhone 15 Pro', price: 'Rs. 350,000', sale: false, category: 'Mobiles', subCategory: 'Apple', bestSeller: false, image: '', images: [], description: 'The latest iPhone 15 Pro features a titanium design, A17 Pro chip, and a more advanced 48MP main camera system.' },
-      { id: 102, name: 'Samsung Galaxy S24 Ultra', price: 'Rs. 400,000', sale: true, category: 'Mobiles', subCategory: 'Samsung', bestSeller: false, image: '', images: [], description: 'Experience the new era of mobile AI with the Galaxy S24 Ultra.' },
-      { id: 103, name: 'Google Pixel 8 Pro', price: 'Rs. 280,000', sale: false, category: 'Mobiles', subCategory: 'Google', bestSeller: false, image: '', images: [], description: 'The best of Google engineering in a sleek, pro-level smartphone.' },
-      { id: 104, name: 'OnePlus 12', price: 'Rs. 250,000', sale: false, category: 'Mobiles', subCategory: 'OnePlus', bestSeller: false, image: '', images: [], description: 'Smooth beyond belief. Co-developed with Hasselblad.' },
-      { id: 105, name: 'iPhone 13', price: 'Rs. 180,000', sale: true, category: 'Mobiles', subCategory: 'Apple', bestSeller: false, image: '', images: [], description: 'Your new superpower. Advanced dual-camera system.' },
-      { id: 106, name: 'Xiaomi 14', price: 'Rs. 220,000', sale: false, category: 'Mobiles', subCategory: 'Xiaomi', bestSeller: false, image: '', images: [], description: 'Masterpiece in sight. Leica optical lens.' },
-      
-      { id: 201, name: 'Wireless earbuds Pro', price: 'Rs. 15,000', sale: true, category: 'Audio', subCategory: 'Earbuds', bestSeller: true, image: '', images: [], description: 'Active noise cancellation for immersive sound.' },
-      { id: 202, name: 'Over-ear Noise Cancelling Headphones', price: 'Rs. 45,000', sale: false, category: 'Audio', subCategory: 'Headphones', bestSeller: false, image: '', images: [], description: 'High-fidelity audio with industry-leading noise cancellation.' },
-      { id: 203, name: 'Portable Bluetooth Speaker', price: 'Rs. 12,000', sale: false, category: 'Audio', subCategory: 'Speakers', bestSeller: false, image: '', images: [], description: 'Waterproof portable speaker with bold sound.' },
-      { id: 204, name: 'Sport Wireless Earbuds', price: 'Rs. 8,000', sale: true, category: 'Audio', subCategory: 'Earbuds', bestSeller: false, image: '', images: [], description: 'Secure fit and sweatproof design for workouts.' },
-      
-      { id: 301, name: 'USB-C to USB-C cable', price: 'Rs. 2,000', sale: false, category: 'Accessories', subCategory: 'Cables', bestSeller: true, image: '', images: [], description: 'Fast charging and data syncing cable.' },
-      { id: 302, name: '30W Fast Charger', price: 'Rs. 4,500', sale: true, category: 'Accessories', subCategory: 'Chargers', bestSeller: false, image: '', images: [], description: 'Compact power adapter for fast charging.' },
-      { id: 303, name: 'MagSafe Clear Case', price: 'Rs. 3,000', sale: false, category: 'Accessories', subCategory: 'Mobile Accessories', bestSeller: false, image: '', images: [], description: 'Showcase your phone while keeping it protected.' },
-      { id: 401, name: 'Smart LED Bulb', price: 'Rs. 3,500', sale: false, category: 'Smart Home', subCategory: '', bestSeller: false, image: '', images: [], description: '' },
-      { id: 402, name: 'Smart Wi-Fi Plug', price: 'Rs. 4,000', sale: true, category: 'Smart Home', subCategory: '', bestSeller: false, image: '', images: [], description: '' },
-      { id: 403, name: 'Indoor Security Camera', price: 'Rs. 12,500', sale: false, category: 'Smart Home', subCategory: '', bestSeller: false, image: '', images: [], description: '' },
-      { id: 404, name: 'Voice Assistant Speaker', price: 'Rs. 18,000', sale: true, category: 'Smart Home', subCategory: '', bestSeller: false, image: '', images: [], description: '' },
-      
-      { id: 501, name: 'Smartwatch', price: 'Rs. 25,000', sale: false, category: 'Wearables', subCategory: '', bestSeller: true, image: '', images: [], description: '' },
-    ];
-  });
+  const [products, setProducts] = useState([]);
 
   const [orders, setOrders] = useState(() => {
     const saved = localStorage.getItem('orders');
@@ -59,9 +29,11 @@ export const StoreProvider = ({ children }) => {
   const [categories, setCategories] = useState(() => {
     const saved = localStorage.getItem('categories');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      delete parsed['Uncategorized'];
-      return parsed;
+      try {
+        const parsed = JSON.parse(saved);
+        delete parsed['Uncategorized'];
+        return parsed;
+      } catch (e) {}
     }
     return {
       'Mobiles': ['Samsung', 'Apple', 'Google', 'OnePlus', 'Xiaomi'],
@@ -80,29 +52,139 @@ export const StoreProvider = ({ children }) => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // Sync to localStorage as offline cache
   useEffect(() => { try { localStorage.setItem('user', JSON.stringify(user)); } catch(e){} }, [user]);
   useEffect(() => { try { localStorage.setItem('storeDetails', JSON.stringify(storeDetails)); } catch(e){} }, [storeDetails]);
-  useEffect(() => { 
-    try { 
-      localStorage.setItem('products', JSON.stringify(products)); 
-    } catch(e) { 
-      alert('WARNING: Your browser storage is full because the images you uploaded are too large. Please delete some products or use smaller images, otherwise your changes will not be saved!'); 
-    } 
-  }, [products]);
+  useEffect(() => { try { localStorage.setItem('products', JSON.stringify(products)); } catch(e){} }, [products]);
   useEffect(() => { try { localStorage.setItem('orders', JSON.stringify(orders)); } catch(e){} }, [orders]);
   useEffect(() => { try { localStorage.setItem('cart', JSON.stringify(cart)); } catch(e){} }, [cart]);
   useEffect(() => { try { localStorage.setItem('categories', JSON.stringify(categories)); } catch(e){} }, [categories]);
 
-  const addProduct = (product) => setProducts([...products, { ...product, id: Date.now() }]);
-  const updateProduct = (id, updatedData) => setProducts(products.map(p => p.id === id ? { ...p, ...updatedData } : p));
-  const deleteProduct = (id) => setProducts(products.filter(p => p.id !== id));
-  const updateStoreDetails = (details) => setStoreDetails({ ...storeDetails, ...details });
+  // Load from MySQL backend on initial mount
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [prodRes, catRes, orderRes, storeRes] = await Promise.all([
+          fetch('/api/products').catch(() => null),
+          fetch('/api/categories').catch(() => null),
+          fetch('/api/orders').catch(() => null),
+          fetch('/api/store-details').catch(() => null)
+        ]);
 
-  // Category operations
-  const addCategory = (name) => {
-    if (name === 'Uncategorized') return;
-    
+        if (prodRes && prodRes.ok) {
+          const prodData = await prodRes.json();
+          if (Array.isArray(prodData)) {
+            setProducts(prodData);
+          }
+        }
+        if (catRes && catRes.ok) {
+          const catData = await catRes.json();
+          if (catData && Object.keys(catData).length > 0) {
+            setCategories(catData);
+          }
+        }
+        if (orderRes && orderRes.ok) {
+          const orderData = await orderRes.json();
+          if (Array.isArray(orderData)) {
+            setOrders(orderData);
+          }
+        }
+        if (storeRes && storeRes.ok) {
+          const storeData = await storeRes.json();
+          if (storeData && storeData.address) {
+            setStoreDetails(storeData);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load data from MySQL API:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
+
+  // Product operations backed by MySQL
+  const addProduct = async (product) => {
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(product)
+      });
+      if (res.ok) {
+        const newProduct = await res.json();
+        setProducts(prev => [newProduct, ...prev]);
+        return newProduct;
+      }
+    } catch (err) {
+      console.error('Failed to save product to database:', err);
+    }
+    const fallback = { ...product, id: Date.now() };
+    setProducts(prev => [fallback, ...prev]);
+    return fallback;
+  };
+
+  const updateProduct = async (id, updatedData) => {
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData)
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setProducts(prev => prev.map(p => p.id === id ? updated : p));
+        return updated;
+      }
+    } catch (err) {
+      console.error('Failed to update product in database:', err);
+    }
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updatedData } : p));
+  };
+
+  const deleteProduct = async (id) => {
+    try {
+      await fetch(`/api/products/${id}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to delete product from database:', err);
+    }
+    setProducts(prev => prev.filter(p => p.id !== id));
+  };
+
+  const updateStoreDetails = async (details) => {
+    try {
+      const res = await fetch('/api/store-details', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(details)
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setStoreDetails(updated);
+        return updated;
+      }
+    } catch (err) {
+      console.error('Failed to update store details in database:', err);
+    }
+    setStoreDetails(prev => ({ ...prev, ...details }));
+  };
+
+  // Category operations backed by MySQL
+  const addCategory = async (name) => {
+    if (!name || name === 'Uncategorized') return;
+    try {
+      await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+    } catch (err) {
+      console.error('Failed to add category to database:', err);
+    }
     setCategories(prev => {
       if (!prev[name]) {
         return { ...prev, [name]: [] };
@@ -111,7 +193,12 @@ export const StoreProvider = ({ children }) => {
     });
   };
   
-  const deleteCategory = (name) => {
+  const deleteCategory = async (name) => {
+    try {
+      await fetch(`/api/categories/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to delete category from database:', err);
+    }
     setCategories(prev => {
       const newCats = { ...prev };
       delete newCats[name];
@@ -120,7 +207,16 @@ export const StoreProvider = ({ children }) => {
     setProducts(prev => prev.map(p => p.category === name ? { ...p, category: 'Uncategorized', subCategory: '' } : p));
   };
   
-  const addSubCategory = (catName, subName) => {
+  const addSubCategory = async (catName, subName) => {
+    try {
+      await fetch(`/api/categories/${encodeURIComponent(catName)}/subcategories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subCategory: subName })
+      });
+    } catch (err) {
+      console.error('Failed to add subcategory to database:', err);
+    }
     setCategories(prev => {
       if (prev[catName] && !prev[catName].includes(subName)) {
         return { ...prev, [catName]: [...prev[catName], subName] };
@@ -129,7 +225,14 @@ export const StoreProvider = ({ children }) => {
     });
   };
   
-  const deleteSubCategory = (catName, subName) => {
+  const deleteSubCategory = async (catName, subName) => {
+    try {
+      await fetch(`/api/categories/${encodeURIComponent(catName)}/subcategories/${encodeURIComponent(subName)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Failed to delete subcategory from database:', err);
+    }
     setCategories(prev => {
       if (prev[catName]) {
         return { ...prev, [catName]: prev[catName].filter(s => s !== subName) };
@@ -157,39 +260,96 @@ export const StoreProvider = ({ children }) => {
   };
   const clearCart = () => setCart([]);
 
-  const login = (email, password) => {
+  // Auth operations
+  const login = async (email, password) => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setUser(data.user);
+          return data.user.role;
+        }
+      }
+    } catch (err) {
+      console.error('API login error, fallback to local:', err);
+    }
+
+    // Fallback logic
     if (email === 'admin' && password === 'admin123') {
-      setUser({ role: 'admin', name: 'Admin' });
+      const adminUser = { role: 'admin', name: 'Admin', email: 'admin' };
+      setUser(adminUser);
       return 'admin';
     } else {
-      setUser({ role: 'customer', name: email.split('@')[0] || 'Customer' });
+      const custUser = { role: 'customer', name: email.split('@')[0] || 'Customer', email };
+      setUser(custUser);
       return 'customer';
     }
   };
 
-  const register = (name, email, password) => {
-    setUser({ role: 'customer', name: name || email.split('@')[0] });
+  const register = async (name, email, password) => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setUser(data.user);
+          return data.user.role;
+        }
+      }
+    } catch (err) {
+      console.error('API register error, fallback to local:', err);
+    }
+    const custUser = { role: 'customer', name: name || email.split('@')[0], email };
+    setUser(custUser);
     return 'customer';
   };
 
   const loginWithGoogle = () => {
-    setUser({ role: 'customer', name: 'Google User' });
+    const custUser = { role: 'customer', name: 'Google User', email: 'google_user@icare.com' };
+    setUser(custUser);
     return 'customer';
   };
 
   const logout = () => setUser(null);
 
-  const placeOrder = (user, cartItems, totalAmount) => {
+  // Orders backed by MySQL
+  const placeOrder = async (orderUser, cartItems, totalAmount) => {
     const productNames = cartItems.map(item => `${item.quantity}x ${item.name}`).join(', ');
     const newOrder = {
       id: Date.now(),
-      userName: user.name,
+      userName: orderUser?.name || 'Customer',
       productName: productNames,
       price: `Rs. ${totalAmount.toLocaleString()}`,
       status: 'Pending',
       date: new Date().toLocaleDateString()
     };
-    setOrders([...orders, newOrder]);
+
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newOrder)
+      });
+      if (res.ok) {
+        const savedOrder = await res.json();
+        setOrders(prev => [savedOrder, ...prev]);
+        return savedOrder;
+      }
+    } catch (err) {
+      console.error('Failed to save order to database:', err);
+    }
+
+    setOrders(prev => [newOrder, ...prev]);
+    return newOrder;
   };
 
   return (
@@ -202,7 +362,8 @@ export const StoreProvider = ({ children }) => {
       cart, addToCart, removeFromCart, updateQuantity, clearCart,
       isCartOpen, setIsCartOpen,
       isMobileMenuOpen, setIsMobileMenuOpen,
-      selectedProduct, setSelectedProduct
+      selectedProduct, setSelectedProduct,
+      loading
     }}>
       {children}
     </StoreContext.Provider>

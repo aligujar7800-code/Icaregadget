@@ -7,6 +7,8 @@ export default function NewArrivalsSection() {
   // Show the most recently added products (highest IDs = newest)
   const newArrivals = [...products].sort((a, b) => b.id - a.id).slice(0, 4);
 
+  if (newArrivals.length === 0) return null;
+
   return (
     <section className="section" id="new-arrivals">
       <div className="container">
