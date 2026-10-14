@@ -1,109 +1,129 @@
 @echo off
 setlocal enabledelayedexpansion
+title Icare Gadget - Update and Deploy on RDP (Port 3009)
 
-:: Prevent self-modifying batch corruption when git pull modifies update.bat
-if "%~1" neq "__RUNNER__" (
-    copy /y "%~f0" "%TEMP%\_icare_updater.bat" >nul
-    call "%TEMP%\_icare_updater.bat" __RUNNER__ "%~dp0"
-    exit /b %ERRORLEVEL%
+:: Prevent self-modification file pointer corruption during git pull
+if "%~dp0" neq "%TEMP%\" (
+    copy /y "%~f0" "%TEMP%\icare_update_runner.bat" >nul
+    "%TEMP%\icare_update_runner.bat" "%CD%" %*
+    exit /b
 )
 
-:: Switch to project directory
-cd /d "%~2"
+:: Set working directory back to project folder
+if not "%~1"=="" cd /d "%~1"
 
 echo ========================================================
-echo          ICARE GADGET - RDP UPDATE AND DEPLOY
+echo        ICARE GADGET - UPDATE AND DEPLOY ON RDP
+echo                   PORT: 3009
 echo ========================================================
 echo.
 
-:: Detect PM2 command (global pm2 or npx pm2)
-set "PM2_CMD=pm2"
-where pm2 >nul 2>&1
+:: -----------------------------------------------------------------
+:: CONFIGURATION
+:: -----------------------------------------------------------------
+set "BRANCH=main"
+set "APP_PORT=3009"
+set "PM2_APP_NAME=icaregadget"
+
+:: Check Git
+where git >nul 2>&1
 if %ERRORLEVEL% neq 0 (
-    set "PM2_CMD=npx pm2"
+    echo [ERROR] Git is not installed or not in PATH on this RDP.
+    pause
+    exit /b 1
 )
 
-echo [1/5] Pulling latest code from GitHub (origin/main)...
-git pull origin main --no-rebase --no-edit --allow-unrelated-histories -X theirs
+:: Check Node.js / NPM
+where npm >nul 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo [RETRY] Stashing local modifications and retrying pull...
-    git stash
-    git pull origin main --no-rebase --no-edit --allow-unrelated-histories -X theirs
+    echo [ERROR] Node.js/NPM is not installed or not in PATH on this RDP.
+    pause
+    exit /b 1
 )
+
+echo.
+echo [1/5] Fetching latest code and synchronizing with origin/%BRANCH%...
+git fetch origin %BRANCH%
 if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Failed to fetch from GitHub repository. Verify your network or credentials.
+    pause
+    exit /b 1
+)
+
+:: Reset hard to match GitHub cleanly and avoid any merge conflicts
+git reset --hard origin/%BRANCH%
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Failed to reset to origin/%BRANCH%.
+    pause
+    exit /b 1
+)
+
+:: Check if .env exists in project root
+if not exist .env (
     echo.
-    echo [ERROR] Git pull failed. Please check git status or conflicts.
-    goto :fail
-)
-
-:: Check if .env exists
-if not exist ".env" (
-    echo [WARNING] .env file not found! Please paste your .env file in the root directory.
+    echo [WARNING] .env file not found in project root!
+    echo Please make sure you have pasted your .env file into this directory.
+    echo.
 )
 
 echo.
 echo [2/5] Installing dependencies...
-call npm install
+call npm install --no-audit
 if %ERRORLEVEL% neq 0 (
-    echo.
-    echo [ERROR] npm install failed.
-    goto :fail
+    echo [ERROR] npm install encountered an error.
+    pause
+    exit /b 1
 )
 
 echo.
 echo [3/5] Checking / Creating MySQL database...
 call node server/init-db.js
 if %ERRORLEVEL% neq 0 (
-    echo.
     echo [ERROR] MySQL database check or initialization failed.
-    echo Please make sure MySQL service is running and your .env credentials are correct.
-    goto :fail
+    echo Please verify that MySQL service is running and .env credentials are correct.
+    pause
+    exit /b 1
 )
 
 echo.
-echo [4/5] Building production frontend...
+echo [4/5] Building production frontend (dist/)...
 call npm run build
 if %ERRORLEVEL% neq 0 (
-    echo.
-    echo [ERROR] npm run build failed.
-    goto :fail
+    echo [ERROR] Project build failed.
+    pause
+    exit /b 1
 )
 
 echo.
-echo [5/5] Starting / Restarting process on localhost:3009 with PM2...
-call %PM2_CMD% describe icaregadget >nul 2>&1
-if %ERRORLEVEL% equ 0 (
-    echo Process 'icaregadget' found. Restarting...
-    call %PM2_CMD% restart icaregadget --update-env
-) else (
-    echo Process 'icaregadget' not found. Starting with ecosystem.config.cjs...
-    call %PM2_CMD% start ecosystem.config.cjs
-)
-
+echo [5/5] Updating PM2 process (%PM2_APP_NAME% on Port %APP_PORT%)...
+where pm2 >nul 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo.
-    echo [ERROR] Failed to start/restart application with PM2.
-    goto :fail
+    echo [!] PM2 is not found globally. Installing pm2 globally...
+    call npm install -g pm2
 )
 
-:: Save PM2 state for automatic reboot persistence
-call %PM2_CMD% save >nul 2>&1
+:: Start or restart process gracefully
+call pm2 describe %PM2_APP_NAME% >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    echo Process '%PM2_APP_NAME%' found. Restarting...
+    call pm2 restart ecosystem.config.cjs --update-env
+) else (
+    echo Process '%PM2_APP_NAME%' not found. Starting with ecosystem.config.cjs...
+    call pm2 start ecosystem.config.cjs
+)
+
+:: Save PM2 list so it restarts on system reboot
+call pm2 save
+
+echo.
+echo PM2 Process Status:
+call pm2 list
 
 echo.
 echo ========================================================
-echo  [SUCCESS] Application successfully updated and deployed!
-echo  Single URL for Frontend and Backend:
-echo  http://localhost:3009
+echo   [SUCCESS] Deployment complete!
+echo   Application running at: http://localhost:%APP_PORT%
 echo ========================================================
 echo.
 pause
 exit /b 0
-
-:fail
-echo.
-echo ========================================================
-echo  [FAILED] Deployment failed. Please review the errors above.
-echo ========================================================
-echo.
-pause
-exit /b 1

@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool, initDB } from './db.js';
+import { sendOtpEmail, generateOtp } from './mailer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -266,23 +267,209 @@ app.put('/api/orders/:id/status', async (req, res) => {
   }
 });
 
-// ==================== AUTH ====================
+// ==================== AUTH & SECURITY ====================
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    const targetAdminEmail = process.env.ADMIN_EMAIL || 'admin@icaregadget.store';
+    const isAdminAttempt = email === targetAdminEmail || email === 'admin';
+
+    if (isAdminAttempt) {
+      // Find admin user in database
+      const [admins] = await pool.query(
+        'SELECT id, name, email, password, role FROM users WHERE (email = ? OR email = ? OR role = "admin") LIMIT 1',
+        [targetAdminEmail, 'admin']
+      );
+
+      const adminUser = admins[0];
+      const validPassword = adminUser ? adminUser.password === password : password === 'admin123';
+
+      if (!validPassword) {
+        return res.status(401).json({ error: 'Invalid admin credentials' });
+      }
+
+      // Generate 6-digit OTP
+      const code = generateOtp();
+
+      // Clear old unused login codes for this admin
+      await pool.query(
+        'DELETE FROM otp_codes WHERE email = ? AND action = "ADMIN_LOGIN" AND is_used = FALSE',
+        [targetAdminEmail]
+      );
+
+      // Save new OTP with 10-minute expiry
+      await pool.query(
+        'INSERT INTO otp_codes (email, code, action, expires_at) VALUES (?, ?, "ADMIN_LOGIN", DATE_ADD(NOW(), INTERVAL 10 MINUTE))',
+        [targetAdminEmail, code]
+      );
+
+      // Send OTP email
+      await sendOtpEmail(targetAdminEmail, code, 'ADMIN_LOGIN');
+
+      return res.json({
+        success: true,
+        requireOtp: true,
+        email: targetAdminEmail,
+        message: 'Verification code sent to ' + targetAdminEmail
+      });
+    }
+
+    // Customer Login
     const [users] = await pool.query('SELECT id, name, email, role FROM users WHERE email = ? AND password = ?', [email, password]);
     if (users.length > 0) {
       return res.json({ success: true, user: users[0] });
     }
-    // Check if admin fallback credentials
-    if (email === 'admin' && password === 'admin123') {
-      return res.json({ success: true, user: { name: 'Admin', email: 'admin', role: 'admin' } });
-    }
-    // Also allow customer login with name fallback if not yet registered
+
     return res.status(401).json({ error: 'Invalid email or password' });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Verify Admin Login OTP
+app.post('/api/auth/verify-admin-otp', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    const targetAdminEmail = process.env.ADMIN_EMAIL || 'admin@icaregadget.store';
+
+    const [rows] = await pool.query(
+      `SELECT * FROM otp_codes 
+       WHERE email = ? AND code = ? AND action = 'ADMIN_LOGIN' AND is_used = FALSE AND expires_at > NOW() 
+       ORDER BY id DESC LIMIT 1`,
+      [targetAdminEmail, String(code).trim()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or expired verification code. Please check your email and try again.' });
+    }
+
+    // Mark code as used
+    await pool.query('UPDATE otp_codes SET is_used = TRUE WHERE id = ?', [rows[0].id]);
+
+    // Retrieve admin record
+    const [admins] = await pool.query('SELECT id, name, email, role FROM users WHERE role = "admin" LIMIT 1');
+    const user = admins.length > 0 
+      ? admins[0] 
+      : { id: 1, name: 'Admin', email: targetAdminEmail, role: 'admin' };
+
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error('OTP verification error:', err);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+// Resend Admin OTP
+app.post('/api/auth/resend-admin-otp', async (req, res) => {
+  try {
+    const { email, action = 'ADMIN_LOGIN' } = req.body;
+    const targetAdminEmail = process.env.ADMIN_EMAIL || 'admin@icaregadget.store';
+
+    const code = generateOtp();
+
+    await pool.query(
+      'DELETE FROM otp_codes WHERE email = ? AND action = ? AND is_used = FALSE',
+      [targetAdminEmail, action]
+    );
+
+    await pool.query(
+      'INSERT INTO otp_codes (email, code, action, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))',
+      [targetAdminEmail, code, action]
+    );
+
+    await sendOtpEmail(targetAdminEmail, code, action);
+
+    res.json({ success: true, message: 'New verification code sent' });
+  } catch (err) {
+    console.error('Error resending OTP:', err);
+    res.status(500).json({ error: 'Failed to resend code' });
+  }
+});
+
+// Request Password Change OTP (From Admin Dashboard)
+app.post('/api/admin/request-password-otp', async (req, res) => {
+  try {
+    const { currentPassword } = req.body;
+    const targetAdminEmail = process.env.ADMIN_EMAIL || 'admin@icaregadget.store';
+
+    const [admins] = await pool.query('SELECT * FROM users WHERE role = "admin" LIMIT 1');
+    const adminUser = admins[0];
+
+    const validPassword = adminUser ? adminUser.password === currentPassword : currentPassword === 'admin123';
+    if (!validPassword) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    const code = generateOtp();
+
+    await pool.query(
+      'DELETE FROM otp_codes WHERE email = ? AND action = "CHANGE_PASSWORD" AND is_used = FALSE',
+      [targetAdminEmail]
+    );
+
+    await pool.query(
+      'INSERT INTO otp_codes (email, code, action, expires_at) VALUES (?, ?, "CHANGE_PASSWORD", DATE_ADD(NOW(), INTERVAL 10 MINUTE))',
+      [targetAdminEmail, code]
+    );
+
+    await sendOtpEmail(targetAdminEmail, code, 'CHANGE_PASSWORD');
+
+    res.json({ success: true, message: 'Verification code sent to ' + targetAdminEmail });
+  } catch (err) {
+    console.error('Error requesting password OTP:', err);
+    res.status(500).json({ error: 'Failed to request verification code' });
+  }
+});
+
+// Confirm Password Change (From Admin Dashboard)
+app.post('/api/admin/change-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword, code } = req.body;
+    const targetAdminEmail = process.env.ADMIN_EMAIL || 'admin@icaregadget.store';
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+
+    // 1. Check current password
+    const [admins] = await pool.query('SELECT * FROM users WHERE role = "admin" LIMIT 1');
+    const adminUser = admins[0];
+    const validPassword = adminUser ? adminUser.password === currentPassword : currentPassword === 'admin123';
+
+    if (!validPassword) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    // 2. Validate OTP
+    const [otpRows] = await pool.query(
+      `SELECT * FROM otp_codes 
+       WHERE email = ? AND code = ? AND action = 'CHANGE_PASSWORD' AND is_used = FALSE AND expires_at > NOW() 
+       ORDER BY id DESC LIMIT 1`,
+      [targetAdminEmail, String(code).trim()]
+    );
+
+    if (otpRows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or expired verification code' });
+    }
+
+    // 3. Update password in database
+    if (adminUser) {
+      await pool.query('UPDATE users SET password = ? WHERE id = ?', [newPassword, adminUser.id]);
+    } else {
+      await pool.query(
+        'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+        ['Admin', targetAdminEmail, newPassword, 'admin']
+      );
+    }
+
+    // Mark OTP used
+    await pool.query('UPDATE otp_codes SET is_used = TRUE WHERE id = ?', [otpRows[0].id]);
+
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('Error changing password:', err);
+    res.status(500).json({ error: 'Failed to change password' });
   }
 });
 

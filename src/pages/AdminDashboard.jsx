@@ -3,7 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 
 export default function AdminDashboard() {
-  const { user, products, addProduct, updateProduct, deleteProduct, storeDetails, updateStoreDetails, logout, orders, categories: contextCategories, addCategory, deleteCategory, addSubCategory, deleteSubCategory } = useStore();
+  const { 
+    user, products, addProduct, updateProduct, deleteProduct, 
+    storeDetails, updateStoreDetails, logout, orders, 
+    categories: contextCategories, addCategory, deleteCategory, 
+    addSubCategory, deleteSubCategory,
+    requestPasswordOtp, changeAdminPassword 
+  } = useStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('products');
   const fileInputRef = useRef(null);
@@ -26,6 +32,25 @@ export default function AdminDashboard() {
   const [address, setAddress] = useState(storeDetails.address);
   const [hours, setHours] = useState(storeDetails.hours);
   const [phone, setPhone] = useState(storeDetails.phone);
+
+  // Password change form state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordOtp, setPasswordOtp] = useState('');
+  const [passwordStep, setPasswordStep] = useState('input'); // 'input' or 'otp'
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSuccess, setPwdSuccess] = useState('');
+  const [pwdCountdown, setPwdCountdown] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    if (pwdCountdown > 0) {
+      timer = setTimeout(() => setPwdCountdown(c => c - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [pwdCountdown]);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
@@ -172,6 +197,71 @@ export default function AdminDashboard() {
     alert('Store details updated successfully!');
   };
 
+  const handleRequestPasswordOtp = async (e) => {
+    e.preventDefault();
+    setPwdError('');
+    setPwdSuccess('');
+
+    if (!currentPassword) {
+      setPwdError('Please enter your current password.');
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      setPwdError('New password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwdError('New passwords do not match.');
+      return;
+    }
+
+    setPwdLoading(true);
+    try {
+      const res = await requestPasswordOtp(currentPassword);
+      if (res?.success) {
+        setPasswordStep('otp');
+        setPwdSuccess(res.message || 'Verification code sent to admin@icaregadget.store');
+        setPwdCountdown(60);
+      } else {
+        setPwdError(res?.error || 'Failed to request code. Check current password.');
+      }
+    } catch (err) {
+      setPwdError('Network error requesting code.');
+    } finally {
+      setPwdLoading(false);
+    }
+  };
+
+  const handleConfirmPasswordChange = async (e) => {
+    e.preventDefault();
+    setPwdError('');
+    setPwdSuccess('');
+
+    if (!passwordOtp || passwordOtp.trim().length !== 6) {
+      setPwdError('Please enter the 6-digit verification code.');
+      return;
+    }
+
+    setPwdLoading(true);
+    try {
+      const res = await changeAdminPassword(currentPassword, newPassword, passwordOtp.trim());
+      if (res?.success) {
+        setPwdSuccess('Password updated successfully! Next time you log in, use your new password.');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setPasswordOtp('');
+        setPasswordStep('input');
+      } else {
+        setPwdError(res?.error || 'Invalid or expired verification code.');
+      }
+    } catch (err) {
+      setPwdError('Network error updating password.');
+    } finally {
+      setPwdLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -228,6 +318,13 @@ export default function AdminDashboard() {
               Store Settings
             </div>
           </button>
+
+          <button onClick={() => setActiveTab('security')} style={sidebarBtnStyle(activeTab === 'security')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              Security & Password
+            </div>
+          </button>
         </nav>
         <div style={{ padding: '24px 12px' }}>
           <button onClick={handleLogout} style={{ width: '100%', textAlign: 'left', padding: '12px 16px', borderRadius: '8px', color: '#f87171', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', transition: 'background 0.2s', border: 'none', cursor: 'pointer', backgroundColor: 'transparent' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
@@ -246,6 +343,7 @@ export default function AdminDashboard() {
               {activeTab === 'categories' && 'Categories Management'}
               {activeTab === 'store' && 'Store Settings'}
               {activeTab === 'orders' && 'Customer Orders'}
+              {activeTab === 'security' && 'Security & Password Settings'}
             </h1>
             <p style={{ color: '#6b7280', marginTop: '4px' }}>Welcome back, Admin.</p>
           </div>
@@ -574,6 +672,158 @@ export default function AdminDashboard() {
                 Save Changes
               </button>
             </form>
+          </div>
+        )}
+
+        {/* ===== SECURITY & PASSWORD TAB ===== */}
+        {activeTab === 'security' && (
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', maxWidth: '560px' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '8px', color: '#111827' }}>Change Admin Password</h2>
+            <p style={{ color: '#6b7280', marginBottom: '24px', fontSize: '0.875rem', lineHeight: '1.5' }}>
+              To update your password, enter your existing password below. A 6-digit verification code will be sent to <strong>admin@icaregadget.store</strong> to authorize the change.
+            </p>
+
+            {pwdError && (
+              <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '12px 16px', borderRadius: '8px', fontSize: '0.875rem', marginBottom: '20px' }}>
+                {pwdError}
+              </div>
+            )}
+
+            {pwdSuccess && (
+              <div style={{ backgroundColor: '#dcfce7', color: '#15803d', padding: '12px 16px', borderRadius: '8px', fontSize: '0.875rem', marginBottom: '20px' }}>
+                {pwdSuccess}
+              </div>
+            )}
+
+            {passwordStep === 'input' ? (
+              <form onSubmit={handleRequestPasswordOtp} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={labelStyle}>Current Password *</label>
+                  <input 
+                    type="password" 
+                    value={currentPassword} 
+                    onChange={e => setCurrentPassword(e.target.value)} 
+                    style={inputStyle} 
+                    placeholder="Enter current password (default: admin123)"
+                    required 
+                    onFocus={focusHandler} 
+                    onBlur={blurHandler} 
+                  />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>New Password *</label>
+                  <input 
+                    type="password" 
+                    value={newPassword} 
+                    onChange={e => setNewPassword(e.target.value)} 
+                    style={inputStyle} 
+                    placeholder="Minimum 6 characters"
+                    required 
+                    minLength={6}
+                    onFocus={focusHandler} 
+                    onBlur={blurHandler} 
+                  />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Confirm New Password *</label>
+                  <input 
+                    type="password" 
+                    value={confirmPassword} 
+                    onChange={e => setConfirmPassword(e.target.value)} 
+                    style={inputStyle} 
+                    placeholder="Re-enter new password"
+                    required 
+                    minLength={6}
+                    onFocus={focusHandler} 
+                    onBlur={blurHandler} 
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={pwdLoading}
+                  style={{ 
+                    padding: '12px 24px', 
+                    backgroundColor: 'var(--orange)', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '8px', 
+                    fontWeight: 'bold', 
+                    cursor: pwdLoading ? 'default' : 'pointer', 
+                    alignSelf: 'flex-start', 
+                    marginTop: '8px',
+                    transition: 'opacity 0.2s' 
+                  }}
+                >
+                  {pwdLoading ? 'Sending Verification Code...' : 'Send Verification Code'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleConfirmPasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fed7aa', padding: '16px', borderRadius: '8px' }}>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#c2410c' }}>
+                    Enter the 6-digit code sent to <strong>admin@icaregadget.store</strong> to confirm changing your password.
+                  </p>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>6-Digit Verification Code *</label>
+                  <input 
+                    type="text" 
+                    maxLength={6}
+                    value={passwordOtp} 
+                    onChange={e => setPasswordOtp(e.target.value.replace(/[^0-9]/g, ''))} 
+                    style={{ 
+                      ...inputStyle, 
+                      textAlign: 'center', 
+                      fontSize: '1.5rem', 
+                      fontWeight: '800', 
+                      letterSpacing: '6px',
+                      fontFamily: 'monospace'
+                    }} 
+                    placeholder="------"
+                    required 
+                    autoFocus
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <button 
+                    type="submit" 
+                    disabled={pwdLoading}
+                    style={{ 
+                      padding: '12px 24px', 
+                      backgroundColor: '#16a34a', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '8px', 
+                      fontWeight: 'bold', 
+                      cursor: pwdLoading ? 'default' : 'pointer' 
+                    }}
+                  >
+                    {pwdLoading ? 'Updating Password...' : 'Confirm & Update Password'}
+                  </button>
+
+                  <button 
+                    type="button" 
+                    onClick={() => { setPasswordStep('input'); setPasswordOtp(''); setPwdError(''); setPwdSuccess(''); }}
+                    style={{ 
+                      padding: '12px 18px', 
+                      backgroundColor: '#f3f4f6', 
+                      color: '#4b5563', 
+                      border: 'none', 
+                      borderRadius: '8px', 
+                      fontWeight: '600', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         )}
       </main>

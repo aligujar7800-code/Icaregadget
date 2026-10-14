@@ -96,6 +96,19 @@ export async function initDB() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
+    // 6. OTP Codes table for Two-Factor Authentication and Password Reset
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS otp_codes (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        code VARCHAR(10) NOT NULL,
+        action VARCHAR(50) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        is_used BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
     // Seed Store Details if empty
     const [storeRows] = await connection.query('SELECT COUNT(*) as count FROM store_details');
     if (storeRows[0].count === 0) {
@@ -105,12 +118,19 @@ export async function initDB() {
       );
     }
 
-    // Seed Admin User if not exists
-    const [adminRows] = await connection.query('SELECT COUNT(*) as count FROM users WHERE email = ?', ['admin']);
-    if (adminRows[0].count === 0) {
+    // Seed/Update Admin User with admin@icaregadget.store
+    const targetAdminEmail = process.env.ADMIN_EMAIL || 'admin@icaregadget.store';
+    const [adminRows] = await connection.query('SELECT * FROM users WHERE email = ? OR email = ? OR email = ?', [targetAdminEmail, 'admin@icaregadget.shop', 'admin']);
+    if (adminRows.length === 0) {
       await connection.query(
         'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-        ['Admin', 'admin', 'admin123', 'admin']
+        ['Admin', targetAdminEmail, 'admin123', 'admin']
+      );
+    } else {
+      // Migrate legacy usernames to admin@icaregadget.store
+      await connection.query(
+        'UPDATE users SET email = ? WHERE email = ? OR email = ?',
+        [targetAdminEmail, 'admin', 'admin@icaregadget.shop']
       );
     }
 

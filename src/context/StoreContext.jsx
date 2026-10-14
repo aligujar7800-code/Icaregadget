@@ -268,26 +268,90 @@ export const StoreProvider = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
+        if (data.requireOtp) {
+          return { requireOtp: true, email: data.email, message: data.message };
+        }
         if (data.user) {
           setUser(data.user);
-          return data.user.role;
+          return { role: data.user.role };
         }
       }
+      return { error: data.error || 'Invalid credentials' };
     } catch (err) {
-      console.error('API login error, fallback to local:', err);
+      console.error('API login error:', err);
+      return { error: 'Connection error. Please try again.' };
     }
+  };
 
-    // Fallback logic
-    if (email === 'admin' && password === 'admin123') {
-      const adminUser = { role: 'admin', name: 'Admin', email: 'admin' };
-      setUser(adminUser);
-      return 'admin';
-    } else {
-      const custUser = { role: 'customer', name: email.split('@')[0] || 'Customer', email };
-      setUser(custUser);
-      return 'customer';
+  const verifyAdminOtp = async (email, code) => {
+    try {
+      const res = await fetch('/api/auth/verify-admin-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code })
+      });
+      const data = await res.json();
+      if (res.ok && data.user) {
+        setUser(data.user);
+        return { success: true, user: data.user };
+      }
+      return { error: data.error || 'Invalid verification code' };
+    } catch (err) {
+      console.error('Verify OTP error:', err);
+      return { error: 'Network error verifying code' };
+    }
+  };
+
+  const resendAdminOtp = async (email, action = 'ADMIN_LOGIN') => {
+    try {
+      const res = await fetch('/api/auth/resend-admin-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, action })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        return { success: true, message: data.message };
+      }
+      return { error: data.error || 'Failed to resend code' };
+    } catch (err) {
+      return { error: 'Network error resending code' };
+    }
+  };
+
+  const requestPasswordOtp = async (currentPassword) => {
+    try {
+      const res = await fetch('/api/admin/request-password-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        return { success: true, message: data.message };
+      }
+      return { error: data.error || 'Failed to send code' };
+    } catch (err) {
+      return { error: 'Network error requesting code' };
+    }
+  };
+
+  const changeAdminPassword = async (currentPassword, newPassword, code) => {
+    try {
+      const res = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword, code })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        return { success: true, message: data.message };
+      }
+      return { error: data.error || 'Failed to change password' };
+    } catch (err) {
+      return { error: 'Network error updating password' };
     }
   };
 
@@ -354,7 +418,8 @@ export const StoreProvider = ({ children }) => {
 
   return (
     <StoreContext.Provider value={{ 
-      user, login, register, loginWithGoogle, logout, 
+      user, login, register, loginWithGoogle, logout,
+      verifyAdminOtp, resendAdminOtp, requestPasswordOtp, changeAdminPassword,
       storeDetails, updateStoreDetails, 
       categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory,
       products, addProduct, updateProduct, deleteProduct,
