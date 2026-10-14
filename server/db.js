@@ -19,7 +19,20 @@ export const pool = mysql.createPool({
   queueLimit: 0,
 });
 
+export async function ensureDatabaseExists() {
+  const dbName = process.env.DB_NAME || 'icare_db';
+  const connection = await mysql.createConnection({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || 'AzanMalik7860',
+    port: Number(process.env.DB_PORT) || 3306,
+  });
+  await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+  await connection.end();
+}
+
 export async function initDB() {
+  await ensureDatabaseExists();
   const connection = await pool.getConnection();
   try {
     // 1. Products table

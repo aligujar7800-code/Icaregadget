@@ -30,7 +30,7 @@ if not exist ".env" (
 )
 
 echo.
-echo [2/4] Installing dependencies...
+echo [2/5] Installing dependencies...
 call npm install
 if %ERRORLEVEL% neq 0 (
     echo.
@@ -39,7 +39,17 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo.
-echo [3/4] Building production frontend...
+echo [3/5] Checking / Creating MySQL database...
+call node server/init-db.js
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo [ERROR] MySQL database check or initialization failed.
+    echo Please make sure MySQL service is running and your .env credentials are correct.
+    goto :fail
+)
+
+echo.
+echo [4/5] Building production frontend...
 call npm run build
 if %ERRORLEVEL% neq 0 (
     echo.
@@ -48,7 +58,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo.
-echo [4/4] Starting / Restarting process on localhost:3009 with PM2...
+echo [5/5] Starting / Restarting process on localhost:3009 with PM2...
 call %PM2_CMD% describe icaregadget >nul 2>&1
 if %ERRORLEVEL% equ 0 (
     echo Process 'icaregadget' found. Restarting...
