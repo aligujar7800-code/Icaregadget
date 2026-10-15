@@ -251,12 +251,11 @@ export default function LoginPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label htmlFor="email" style={{ fontWeight: '600', fontSize: '0.875rem' }}>Email Address</label>
                 <input 
-                  type="text" 
+                  type="email" 
                   id="email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   style={{ padding: '0.875rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--light-gray)', fontFamily: 'inherit' }}
-                  placeholder="admin@icaregadget.store"
                   required
                 />
               </div>
