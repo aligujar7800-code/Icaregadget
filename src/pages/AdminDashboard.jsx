@@ -57,6 +57,42 @@ export default function AdminDashboard() {
   const [cfSuccess, setCfSuccess] = useState('');
   const [newDestinationEmail, setNewDestinationEmail] = useState('');
   const [cfActionLoading, setCfActionLoading] = useState(false);
+  const [aiMessages, setAiMessages] = useState([
+    {
+      role: 'assistant',
+      content: "Hello Admin! I'm your AI Business Advisor & Data Handler. I have live access to your store metrics (orders, revenue, products). Ask me to calculate sales performance, diagnose inventory gaps, plan promotions, or discuss any business question!"
+    }
+  ]);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleAiSend = async (customPrompt) => {
+    const text = (customPrompt || aiInput).trim();
+    if (!text || aiLoading) return;
+
+    const updated = [...aiMessages, { role: 'user', content: text }];
+    setAiMessages(updated);
+    setAiInput('');
+    setAiLoading(true);
+
+    try {
+      const res = await fetch('/api/chat/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: updated.slice(-6).map(m => ({ role: m.role, content: m.content }))
+        })
+      });
+      const data = await res.json();
+      const reply = data.reply || "I'm having a brief connection issue. Please try again.";
+      setAiMessages([...updated, { role: 'assistant', content: reply }]);
+    } catch (err) {
+      setAiMessages([...updated, { role: 'assistant', content: "Failed to connect to AI server: " + err.message }]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   useEffect(() => {
     let timer;
@@ -431,6 +467,15 @@ export default function AdminDashboard() {
               Security & Password
             </div>
           </button>
+          <button onClick={() => setActiveTab('ai_assistant')} style={sidebarBtnStyle(activeTab === 'ai_assistant')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                AI Assistant
+              </div>
+              <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 6px', borderRadius: '99px', fontSize: '0.7rem', fontWeight: 'bold' }}>AI</span>
+            </div>
+          </button>
         </nav>
         <div style={{ padding: '24px 12px' }}>
           <button onClick={handleLogout} style={{ width: '100%', textAlign: 'left', padding: '12px 16px', borderRadius: '8px', color: '#f87171', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', transition: 'background 0.2s', border: 'none', cursor: 'pointer', backgroundColor: 'transparent' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
@@ -450,6 +495,7 @@ export default function AdminDashboard() {
               {activeTab === 'store' && 'Store Settings'}
               {activeTab === 'orders' && 'Customer Orders'}
               {activeTab === 'security' && 'Security & Password Settings'}
+              {activeTab === 'ai_assistant' && 'AI Business Advisor & Data Handler'}
             </h1>
             <p style={{ color: '#6b7280', marginTop: '4px' }}>Welcome back, Admin.</p>
           </div>
@@ -1190,6 +1236,238 @@ export default function AdminDashboard() {
               </div>
             </div>
 
+          </div>
+        )}
+        {/* ==================== AI ASSISTANT TAB ==================== */}
+        {activeTab === 'ai_assistant' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Quick Action Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+              <button
+                onClick={() => handleAiSend("Summarize today's revenue, total orders, and pending delivery status.")}
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#10b981'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+              >
+                <div style={{ fontSize: '20px', marginBottom: '6px' }}>📊</div>
+                <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Revenue & Orders</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Live sales and pending shipments</div>
+              </button>
+
+              <button
+                onClick={() => handleAiSend("Which products are marked as Best Sellers and what items are currently on sale?")}
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#10b981'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+              >
+                <div style={{ fontSize: '20px', marginBottom: '6px' }}>⚡</div>
+                <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Best Sellers & Deals</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Review featured gadgets & discounts</div>
+              </button>
+
+              <button
+                onClick={() => handleAiSend("Suggest 3 promotional marketing campaigns for I Care Gadget this month to boost tech accessories sales.")}
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#10b981'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+              >
+                <div style={{ fontSize: '20px', marginBottom: '6px' }}>💡</div>
+                <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Growth & Campaigns</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Promotional strategies & bundle offers</div>
+              </button>
+
+              <button
+                onClick={() => handleAiSend("What are the most popular trending mobile accessories in Pakistan right now?")}
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#10b981'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+              >
+                <div style={{ fontSize: '20px', marginBottom: '6px' }}>🌐</div>
+                <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Market Trends & Strategy</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Ask any business or general question</div>
+              </button>
+            </div>
+
+            {/* Conversational Console */}
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+              border: '1px solid #e5e7eb',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '580px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                padding: '14px 24px',
+                borderBottom: '1px solid #f3f4f6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: '#fafafa'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: '#10b981' }}></div>
+                  <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Executive Business Co-Pilot</span>
+                  <span style={{ fontSize: '12px', color: '#6b7280' }}>• icare_db live link</span>
+                </div>
+                <button
+                  onClick={() => setAiMessages([{
+                    role: 'assistant',
+                    content: "History cleared. What can I calculate or suggest for you?"
+                  }])}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#9ca3af',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    fontWeight: 500
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+                >
+                  Clear History
+                </button>
+              </div>
+
+              <div style={{
+                flex: 1,
+                padding: '20px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                backgroundColor: '#f9fafb'
+              }}>
+                {aiMessages.map((m, idx) => {
+                  const isUser = m.role === 'user';
+                  return (
+                    <div key={idx} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+                      <div style={{
+                        maxWidth: '85%',
+                        padding: '12px 18px',
+                        borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                        backgroundColor: isUser ? '#111827' : '#ffffff',
+                        color: isUser ? '#ffffff' : '#1f2937',
+                        fontSize: '13.5px',
+                        lineHeight: '1.55',
+                        boxShadow: isUser ? '0 2px 6px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.05)',
+                        border: isUser ? 'none' : '1px solid #e5e7eb',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {m.content}
+                      </div>
+                    </div>
+                  );
+                })}
+                {aiLoading && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                    <div style={{
+                      padding: '10px 16px',
+                      borderRadius: '16px 16px 16px 4px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e5e7eb',
+                      fontSize: '13px',
+                      color: '#6b7280',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10b981' }}></div>
+                      Analyzing live store data...
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleAiSend();
+                }}
+                style={{
+                  padding: '14px 18px',
+                  borderTop: '1px solid #f3f4f6',
+                  display: 'flex',
+                  gap: '10px',
+                  backgroundColor: '#ffffff'
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder="Ask anything: store revenue, best sellers, pricing, campaigns, or general business ideas..."
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  disabled={aiLoading}
+                  style={{
+                    flex: 1,
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #d1d5db',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    backgroundColor: '#f9fafb'
+                  }}
+                  onFocus={e => e.target.style.borderColor = '#111827'}
+                  onBlur={e => e.target.style.borderColor = '#d1d5db'}
+                />
+                <button
+                  type="submit"
+                  disabled={aiLoading || !aiInput.trim()}
+                  style={{
+                    backgroundColor: '#111827',
+                    color: 'white',
+                    padding: '0 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontWeight: 600,
+                    fontSize: '13.5px',
+                    cursor: aiLoading || !aiInput.trim() ? 'not-allowed' : 'pointer',
+                    opacity: aiLoading || !aiInput.trim() ? 0.5 : 1
+                  }}
+                >
+                  Send
+                </button>
+              </form>
+            </div>
           </div>
         )}
       </main>

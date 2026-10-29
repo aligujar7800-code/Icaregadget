@@ -557,6 +557,165 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+// ==================== AI CHAT ROUTES (MULTI-TENANT n8n ENGINE) ====================
+
+// 1. Customer Chat (Website Widget)
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, history = [], role = 'customer', businessId = process.env.BUSINESS_ID || 'icare', senderName } = req.body;
+
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/website-chat';
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
+    try {
+      const n8nResponse = await fetch(n8nWebhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-source': 'icare-website'
+        },
+        body: JSON.stringify({
+          channel: 'website',
+          businessId,
+          role: 'customer',
+          message: message.trim(),
+          senderName: senderName || 'Website Customer',
+          history
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+
+      if (n8nResponse.ok) {
+        const data = await n8nResponse.json();
+        const replyText = typeof data === 'string' ? data : (data.reply || data.message || data.output || "Hello! How can I help you find gadgets today?");
+        return res.json({ 
+          success: true, 
+          reply: replyText,
+          business: data.business || 'I Care Gadget'
+        });
+      }
+    } catch (fetchErr) {
+      clearTimeout(timeout);
+      console.warn('n8n webhook connection failed, falling back to local database quick-reply:', fetchErr.message);
+    }
+
+    // Smart Local Fallback using live icare_db
+    const query = message.toLowerCase();
+    if (query.includes('hour') || query.includes('time') || query.includes('open') || query.includes('location') || query.includes('address')) {
+      const [storeRows] = await pool.query('SELECT address, hours, phone FROM store_details LIMIT 1');
+      const store = storeRows[0] || { address: 'Kohinoor City', hours: '10 AM - 10 PM', phone: '+92 300 1234567' };
+      return res.json({
+        success: true,
+        reply: `We are located at ${store.address} and open daily from ${store.hours}. Delivery is also available across Pakistan! What item are you looking for today? 😊`,
+        business: 'I Care Gadget'
+      });
+    }
+
+    const [products] = await pool.query('SELECT name, price, bestSeller, sale FROM products ORDER BY bestSeller DESC, id DESC LIMIT 2');
+    if (products.length > 0) {
+      const items = products.map(p => `${p.name} (PKR ${p.price})`).join(' and ');
+      return res.json({
+        success: true,
+        reply: `Welcome to I Care Gadget! Some of our top trending items right now are the ${items}. Are you looking for chargers, audio, or phone accessories?`,
+        business: 'I Care Gadget'
+      });
+    }
+
+    return res.json({
+      success: true,
+      reply: "Welcome to I Care Gadget! We offer authentic chargers, accessories, audio gear, and phone protection. What can I help you find today?",
+      business: 'I Care Gadget'
+    });
+
+  } catch (err) {
+    console.error('Error in /api/chat:', err);
+    res.status(500).json({ 
+      success: false, 
+      reply: "I am having a brief connection issue. Please give me a moment and ask again!",
+      error: err.message 
+    });
+  }
+});
+
+// 2. Admin AI Chat (Data Handler & Business Analytics)
+app.post('/api/chat/admin', async (req, res) => {
+  try {
+    const { message, history = [] } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Query live metrics from icare_db
+    const [orderStats] = await pool.query(`
+      SELECT 
+        COUNT(*) as totalOrders,
+        SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pendingOrders,
+        SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END) as deliveredOrders,
+        COALESCE(SUM(CAST(price AS DECIMAL(10,2))), 0) as totalRevenue
+      FROM orders
+    `);
+
+    const [productStats] = await pool.query(`
+      SELECT 
+        COUNT(*) as totalProducts,
+        SUM(CASE WHEN bestSeller = 1 THEN 1 ELSE 0 END) as bestSellers,
+        SUM(CASE WHEN sale = 1 THEN 1 ELSE 0 END) as onSale
+      FROM products
+    `);
+
+    const liveStats = {
+      orders: orderStats[0] || {},
+      products: productStats[0] || {}
+    };
+
+    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/website-chat';
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+
+      const n8nRes = await fetch(n8nWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: 'website',
+          businessId: process.env.BUSINESS_ID || 'icare',
+          role: 'admin',
+          message: `${message.trim()}\n\n[Live Store Data: ${JSON.stringify(liveStats)}]`,
+          senderName: 'Store Admin',
+          history
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+
+      if (n8nRes.ok) {
+        const data = await n8nRes.json();
+        return res.json({ success: true, reply: data.reply || data.message || data.output });
+      }
+    } catch (n8nErr) {
+      console.warn('n8n admin call error:', n8nErr.message);
+    }
+
+    // Direct Analytical response fallback
+    const rev = Number(liveStats.orders.totalRevenue || 0).toLocaleString();
+    const reply = `**Live Store Analytics:**\n- **Total Revenue:** PKR ${rev}\n- **Orders:** ${liveStats.orders.totalOrders || 0} total (${liveStats.orders.pendingOrders || 0} pending, ${liveStats.orders.deliveredOrders || 0} delivered)\n- **Products in Catalog:** ${liveStats.products.totalProducts || 0} (${liveStats.products.bestSellers || 0} Best Sellers, ${liveStats.products.onSale || 0} on sale)\n\nWhat specific business insights or recommendations would you like?`;
+    return res.json({ success: true, reply });
+
+  } catch (err) {
+    console.error('Error in /api/chat/admin:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });

@@ -19,6 +19,7 @@ import { StoreProvider } from './context/StoreContext';
 import CartSidebar from './components/CartSidebar';
 import MobileNavSidebar from './components/MobileNavSidebar';
 import ProductQuickView from './components/ProductQuickView';
+import CustomerChatWidget from './components/CustomerChatWidget';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
           <CartSidebar />
           <MobileNavSidebar />
           <ProductQuickView />
+          <CustomerChatWidget />
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/mobiles" element={<MobilesPage />} />
