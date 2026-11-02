@@ -65,12 +65,39 @@ export default function AdminDashboard() {
   ]);
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiRecording, setAiRecording] = useState(false);
+  const [aiMuted, setAiMuted] = useState(false);
+  const aiMediaRecorderRef = useRef(null);
+  const aiAudioChunksRef = useRef([]);
+  const aiCurrentAudioRef = useRef(null);
 
-  const handleAiSend = async (customPrompt) => {
-    const text = (customPrompt || aiInput).trim();
-    if (!text || aiLoading) return;
+  const playAiVoice = (audioSrc) => {
+    if (!audioSrc || aiMuted) return;
+    try {
+      if (aiCurrentAudioRef.current) aiCurrentAudioRef.current.pause();
+      const sound = new Audio(audioSrc);
+      aiCurrentAudioRef.current = sound;
+      sound.play().catch(e => console.warn('Audio auto-play blocked:', e));
+    } catch (e) {
+      console.warn('Playback error:', e);
+    }
+  };
 
-    const updated = [...aiMessages, { role: 'user', content: text }];
+  const speakAiText = (text) => {
+    if (aiMuted || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.05;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleAiSend = async (customPrompt, audioBase64 = null) => {
+    const text = (customPrompt !== undefined ? customPrompt : aiInput).trim();
+    if (!text && !audioBase64) return;
+    if (aiLoading) return;
+
+    const displayMsg = text || "🎙️ [Voice Command]";
+    const updated = [...aiMessages, { role: 'user', content: displayMsg }];
     setAiMessages(updated);
     setAiInput('');
     setAiLoading(true);
@@ -81,16 +108,59 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
+          audio: audioBase64,
           history: updated.slice(-6).map(m => ({ role: m.role, content: m.content }))
         })
       });
       const data = await res.json();
       const reply = data.reply || "I'm having a brief connection issue. Please try again.";
-      setAiMessages([...updated, { role: 'assistant', content: reply }]);
+      setAiMessages([...updated, { role: 'assistant', content: reply, audio: data.audio }]);
+
+      if (data.audio) {
+        playAiVoice(data.audio);
+      } else {
+        speakAiText(reply);
+      }
     } catch (err) {
       setAiMessages([...updated, { role: 'assistant', content: "Failed to connect to AI server: " + err.message }]);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const startAiRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      aiAudioChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      aiMediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) aiAudioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(aiAudioChunksRef.current, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          handleAiSend("", reader.result);
+        };
+      };
+
+      recorder.start();
+      setAiRecording(true);
+    } catch (err) {
+      console.warn("Microphone denied:", err);
+      alert("Please allow microphone access to use voice commands.");
+    }
+  };
+
+  const stopAiRecording = () => {
+    if (aiMediaRecorderRef.current && aiRecording) {
+      aiMediaRecorderRef.current.stop();
+      setAiRecording(false);
     }
   };
 
@@ -1427,16 +1497,17 @@ export default function AdminDashboard() {
                   padding: '14px 18px',
                   borderTop: '1px solid #f3f4f6',
                   display: 'flex',
+                  alignItems: 'center',
                   gap: '10px',
                   backgroundColor: '#ffffff'
                 }}
               >
                 <input
                   type="text"
-                  placeholder="Ask anything: store revenue, best sellers, pricing, campaigns, or general business ideas..."
+                  placeholder={aiRecording ? "Recording voice command..." : "Ask or speak: store revenue, best sellers, pricing, campaigns..."}
                   value={aiInput}
                   onChange={(e) => setAiInput(e.target.value)}
-                  disabled={aiLoading}
+                  disabled={aiLoading || aiRecording}
                   style={{
                     flex: 1,
                     padding: '10px 14px',
@@ -1444,24 +1515,56 @@ export default function AdminDashboard() {
                     border: '1px solid #d1d5db',
                     fontSize: '13.5px',
                     outline: 'none',
-                    backgroundColor: '#f9fafb'
+                    backgroundColor: aiRecording ? '#fef2f2' : '#f9fafb'
                   }}
                   onFocus={e => e.target.style.borderColor = '#111827'}
                   onBlur={e => e.target.style.borderColor = '#d1d5db'}
                 />
+
+                {/* Voice Mic Button */}
+                <button
+                  type="button"
+                  onClick={aiRecording ? stopAiRecording : startAiRecording}
+                  disabled={aiLoading}
+                  title={aiRecording ? "Stop & Send Voice Command" : "Speak Voice Command"}
+                  style={{
+                    backgroundColor: aiRecording ? '#ef4444' : '#f3f4f6',
+                    color: aiRecording ? '#ffffff' : '#374151',
+                    padding: '0 14px',
+                    height: '40px',
+                    borderRadius: '8px',
+                    border: aiRecording ? '1px solid #dc2626' : '1px solid #d1d5db',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: aiLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="22"></line>
+                  </svg>
+                  {aiRecording ? "Stop & Send" : "Voice"}
+                </button>
+
                 <button
                   type="submit"
-                  disabled={aiLoading || !aiInput.trim()}
+                  disabled={aiLoading || !aiInput.trim() || aiRecording}
                   style={{
                     backgroundColor: '#111827',
                     color: 'white',
                     padding: '0 20px',
+                    height: '40px',
                     borderRadius: '8px',
                     border: 'none',
                     fontWeight: 600,
                     fontSize: '13.5px',
-                    cursor: aiLoading || !aiInput.trim() ? 'not-allowed' : 'pointer',
-                    opacity: aiLoading || !aiInput.trim() ? 0.5 : 1
+                    cursor: aiLoading || !aiInput.trim() || aiRecording ? 'not-allowed' : 'pointer',
+                    opacity: aiLoading || !aiInput.trim() || aiRecording ? 0.5 : 1
                   }}
                 >
                   Send

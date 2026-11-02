@@ -562,16 +562,16 @@ app.post('/api/auth/register', async (req, res) => {
 // 1. Customer Chat (Website Widget)
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, history = [], role = 'customer', businessId = process.env.BUSINESS_ID || 'icare', senderName } = req.body;
+    const { message, audio, history = [], role = 'customer', businessId = process.env.BUSINESS_ID || 'icare', senderName } = req.body;
 
-    if (!message || typeof message !== 'string' || !message.trim()) {
-      return res.status(400).json({ error: 'Message is required' });
+    if ((!message || !message.trim()) && !audio) {
+      return res.status(400).json({ error: 'Message or audio is required' });
     }
 
     const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/website-chat';
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
 
     try {
       const n8nResponse = await fetch(n8nWebhookUrl, {
@@ -584,7 +584,8 @@ app.post('/api/chat', async (req, res) => {
           channel: 'website',
           businessId,
           role: 'customer',
-          message: message.trim(),
+          message: (message || '').trim(),
+          audio: audio || null,
           senderName: senderName || 'Website Customer',
           history
         }),
@@ -599,6 +600,7 @@ app.post('/api/chat', async (req, res) => {
         return res.json({ 
           success: true, 
           reply: replyText,
+          audio: data.audio || null,
           business: data.business || 'I Care Gadget'
         });
       }
@@ -648,9 +650,9 @@ app.post('/api/chat', async (req, res) => {
 // 2. Admin AI Chat (Data Handler & Business Analytics)
 app.post('/api/chat/admin', async (req, res) => {
   try {
-    const { message, history = [] } = req.body;
-    if (!message || !message.trim()) {
-      return res.status(400).json({ error: 'Message is required' });
+    const { message, audio, history = [] } = req.body;
+    if ((!message || !message.trim()) && !audio) {
+      return res.status(400).json({ error: 'Message or audio is required' });
     }
 
     // Query live metrics from icare_db
@@ -679,7 +681,7 @@ app.post('/api/chat/admin', async (req, res) => {
     const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/website-chat';
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
+      const timeout = setTimeout(() => controller.abort(), 20000);
 
       const n8nRes = await fetch(n8nWebhookUrl, {
         method: 'POST',
@@ -688,7 +690,8 @@ app.post('/api/chat/admin', async (req, res) => {
           channel: 'website',
           businessId: process.env.BUSINESS_ID || 'icare',
           role: 'admin',
-          message: `${message.trim()}\n\n[Live Store Data: ${JSON.stringify(liveStats)}]`,
+          message: `${(message || '').trim()}\n\n[Live Store Data: ${JSON.stringify(liveStats)}]`,
+          audio: audio || null,
           senderName: 'Store Admin',
           history
         }),
@@ -699,7 +702,11 @@ app.post('/api/chat/admin', async (req, res) => {
 
       if (n8nRes.ok) {
         const data = await n8nRes.json();
-        return res.json({ success: true, reply: data.reply || data.message || data.output });
+        return res.json({ 
+          success: true, 
+          reply: data.reply || data.message || data.output,
+          audio: data.audio || null
+        });
       }
     } catch (n8nErr) {
       console.warn('n8n admin call error:', n8nErr.message);
