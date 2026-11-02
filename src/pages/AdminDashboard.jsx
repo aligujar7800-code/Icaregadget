@@ -67,29 +67,64 @@ export default function AdminDashboard() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiRecording, setAiRecording] = useState(false);
   const [aiMuted, setAiMuted] = useState(false);
+  const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [aiLiveTranscript, setAiLiveTranscript] = useState('');
   const aiRecognitionRef = useRef(null);
   const aiMediaRecorderRef = useRef(null);
   const aiAudioChunksRef = useRef([]);
   const aiCurrentAudioRef = useRef(null);
 
+  const stopAiVoice = () => {
+    try {
+      if (aiCurrentAudioRef.current) {
+        aiCurrentAudioRef.current.pause();
+        aiCurrentAudioRef.current.currentTime = 0;
+        aiCurrentAudioRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    } catch (e) {
+      console.warn('Stop audio error:', e);
+    }
+    setIsAiSpeaking(false);
+  };
+
   const playAiVoice = (audioSrc) => {
     if (!audioSrc || aiMuted) return;
     try {
-      if (aiCurrentAudioRef.current) aiCurrentAudioRef.current.pause();
+      stopAiVoice();
       const sound = new Audio(audioSrc);
       aiCurrentAudioRef.current = sound;
-      sound.play().catch(e => console.warn('Audio auto-play blocked:', e));
+
+      sound.onplay = () => setIsAiSpeaking(true);
+      sound.onended = () => {
+        setIsAiSpeaking(false);
+        aiCurrentAudioRef.current = null;
+      };
+      sound.onerror = () => {
+        setIsAiSpeaking(false);
+        aiCurrentAudioRef.current = null;
+      };
+
+      sound.play().catch(e => {
+        console.warn('Audio auto-play blocked:', e);
+        setIsAiSpeaking(false);
+      });
     } catch (e) {
       console.warn('Playback error:', e);
+      setIsAiSpeaking(false);
     }
   };
 
   const speakAiText = (text) => {
     if (aiMuted || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
+    stopAiVoice();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.05;
+    utterance.onstart = () => setIsAiSpeaking(true);
+    utterance.onend = () => setIsAiSpeaking(false);
+    utterance.onerror = () => setIsAiSpeaking(false);
     window.speechSynthesis.speak(utterance);
   };
 
@@ -1535,6 +1570,39 @@ export default function AdminDashboard() {
                 )}
               </div>
 
+              {isAiSpeaking && (
+                <div style={{
+                  backgroundColor: '#fef2f2',
+                  borderTop: '1px solid #fee2e2',
+                  padding: '8px 20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '12.5px',
+                  color: '#991b1b'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#dc2626' }} />
+                    <span style={{ fontWeight: 500 }}>Agent is speaking voice response...</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={stopAiVoice}
+                    style={{
+                      backgroundColor: '#dc2626',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '4px 12px',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ⏹️ Stop Speaking
+                  </button>
+                </div>
+              )}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
