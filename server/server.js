@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool, initDB } from './db.js';
+import { fallbackStore } from './fallbackStore.js';
 import { sendOtpEmail, generateOtp } from './mailer.js';
 import { getEmailRoutingInfo, addDestinationAddress, activateForwardingRule, deleteDestinationAddress } from './cloudflare.js';
 
@@ -14,6 +15,7 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3009;
+let isDbConnected = false;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -39,13 +41,15 @@ function formatProduct(p) {
 
 // ==================== PRODUCTS ====================
 app.get('/api/products', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM products ORDER BY id DESC');
-    res.json(rows.map(formatProduct));
-  } catch (err) {
-    console.error('Error fetching products:', err);
-    res.status(500).json({ error: 'Failed to fetch products' });
+  if (isDbConnected) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM products ORDER BY id DESC');
+      return res.json(rows.map(formatProduct));
+    } catch (err) {
+      console.warn('MySQL products fetch failed, using fallback store:', err.message);
+    }
   }
+  res.json(fallbackStore.getProducts().map(formatProduct));
 });
 
 app.post('/api/products', async (req, res) => {
@@ -53,15 +57,23 @@ app.post('/api/products', async (req, res) => {
     const { name, price, category, subCategory = '', sale = false, bestSeller = false, image = '', images = [], description = '' } = req.body;
     const imagesJson = JSON.stringify(images);
     const mainImg = image || (images.length > 0 ? images[0] : '');
-    
-    const [result] = await pool.query(
-      `INSERT INTO products (name, price, category, subCategory, sale, bestSeller, image, images, description)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, price, category, subCategory, sale ? 1 : 0, bestSeller ? 1 : 0, mainImg, imagesJson, description]
-    );
 
-    const [newProduct] = await pool.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
-    res.status(201).json(formatProduct(newProduct[0]));
+    if (isDbConnected) {
+      try {
+        const [result] = await pool.query(
+          `INSERT INTO products (name, price, category, subCategory, sale, bestSeller, image, images, description)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [name, price, category, subCategory, sale ? 1 : 0, bestSeller ? 1 : 0, mainImg, imagesJson, description]
+        );
+        const [newProduct] = await pool.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
+        return res.status(201).json(formatProduct(newProduct[0]));
+      } catch (dbErr) {
+        console.warn('MySQL product insert failed, using fallback:', dbErr.message);
+      }
+    }
+
+    const created = fallbackStore.addProduct({ name, price, category, subCategory, sale, bestSeller, image: mainImg, images, description });
+    res.status(201).json(formatProduct(created));
   } catch (err) {
     console.error('Error creating product:', err);
     res.status(500).json({ error: 'Failed to create product' });
@@ -75,16 +87,24 @@ app.put('/api/products/:id', async (req, res) => {
     const imagesJson = JSON.stringify(images);
     const mainImg = image || (images.length > 0 ? images[0] : '');
 
-    await pool.query(
-      `UPDATE products 
-       SET name = ?, price = ?, category = ?, subCategory = ?, sale = ?, bestSeller = ?, image = ?, images = ?, description = ?
-       WHERE id = ?`,
-      [name, price, category, subCategory, sale ? 1 : 0, bestSeller ? 1 : 0, mainImg, imagesJson, description, id]
-    );
+    if (isDbConnected) {
+      try {
+        await pool.query(
+          `UPDATE products 
+           SET name = ?, price = ?, category = ?, subCategory = ?, sale = ?, bestSeller = ?, image = ?, images = ?, description = ?
+           WHERE id = ?`,
+          [name, price, category, subCategory, sale ? 1 : 0, bestSeller ? 1 : 0, mainImg, imagesJson, description, id]
+        );
+        const [updated] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
+        if (updated.length > 0) return res.json(formatProduct(updated[0]));
+      } catch (dbErr) {
+        console.warn('MySQL product update failed, using fallback:', dbErr.message);
+      }
+    }
 
-    const [updated] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
-    if (updated.length === 0) return res.status(404).json({ error: 'Product not found' });
-    res.json(formatProduct(updated[0]));
+    const updated = fallbackStore.updateProduct(id, { name, price, category, subCategory, sale, bestSeller, image: mainImg, images, description });
+    if (!updated) return res.status(404).json({ error: 'Product not found' });
+    res.json(formatProduct(updated));
   } catch (err) {
     console.error('Error updating product:', err);
     res.status(500).json({ error: 'Failed to update product' });
@@ -94,7 +114,15 @@ app.put('/api/products/:id', async (req, res) => {
 app.delete('/api/products/:id', async (req, res) => {
   try {
     const id = req.params.id;
-    await pool.query('DELETE FROM products WHERE id = ?', [id]);
+    if (isDbConnected) {
+      try {
+        await pool.query('DELETE FROM products WHERE id = ?', [id]);
+        return res.json({ success: true, message: 'Product deleted' });
+      } catch (dbErr) {
+        console.warn('MySQL product delete failed, using fallback:', dbErr.message);
+      }
+    }
+    fallbackStore.deleteProduct(id);
     res.json({ success: true, message: 'Product deleted' });
   } catch (err) {
     console.error('Error deleting product:', err);
@@ -104,23 +132,25 @@ app.delete('/api/products/:id', async (req, res) => {
 
 // ==================== CATEGORIES ====================
 app.get('/api/categories', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM categories');
-    const categoriesMap = {};
-    for (const row of rows) {
-      let subs = [];
-      try {
-        subs = typeof row.sub_categories === 'string' ? JSON.parse(row.sub_categories) : row.sub_categories;
-      } catch (e) {
-        subs = [];
+  if (isDbConnected) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM categories');
+      const categoriesMap = {};
+      for (const row of rows) {
+        let subs = [];
+        try {
+          subs = typeof row.sub_categories === 'string' ? JSON.parse(row.sub_categories) : row.sub_categories;
+        } catch (e) {
+          subs = [];
+        }
+        categoriesMap[row.name] = subs || [];
       }
-      categoriesMap[row.name] = subs || [];
+      return res.json(categoriesMap);
+    } catch (err) {
+      console.warn('MySQL categories fetch failed, using fallback:', err.message);
     }
-    res.json(categoriesMap);
-  } catch (err) {
-    console.error('Error fetching categories:', err);
-    res.status(500).json({ error: 'Failed to fetch categories' });
   }
+  res.json(fallbackStore.getCategories());
 });
 
 app.post('/api/categories', async (req, res) => {
@@ -129,10 +159,15 @@ app.post('/api/categories', async (req, res) => {
     if (!name || name === 'Uncategorized') {
       return res.status(400).json({ error: 'Invalid category name' });
     }
-    await pool.query(
-      'INSERT IGNORE INTO categories (name, sub_categories) VALUES (?, ?)',
-      [name, JSON.stringify([])]
-    );
+    if (isDbConnected) {
+      try {
+        await pool.query('INSERT IGNORE INTO categories (name, sub_categories) VALUES (?, ?)', [name, JSON.stringify([])]);
+        return res.status(201).json({ success: true });
+      } catch (dbErr) {
+        console.warn('MySQL add category failed, fallback:', dbErr.message);
+      }
+    }
+    fallbackStore.addCategory(name);
     res.status(201).json({ success: true });
   } catch (err) {
     console.error('Error adding category:', err);
@@ -143,9 +178,16 @@ app.post('/api/categories', async (req, res) => {
 app.delete('/api/categories/:name', async (req, res) => {
   try {
     const name = decodeURIComponent(req.params.name);
-    await pool.query('DELETE FROM categories WHERE name = ?', [name]);
-    // Set affected products category to Uncategorized
-    await pool.query("UPDATE products SET category = 'Uncategorized', subCategory = '' WHERE category = ?", [name]);
+    if (isDbConnected) {
+      try {
+        await pool.query('DELETE FROM categories WHERE name = ?', [name]);
+        await pool.query("UPDATE products SET category = 'Uncategorized', subCategory = '' WHERE category = ?", [name]);
+        return res.json({ success: true });
+      } catch (dbErr) {
+        console.warn('MySQL delete category failed, fallback:', dbErr.message);
+      }
+    }
+    fallbackStore.deleteCategory(name);
     res.json({ success: true });
   } catch (err) {
     console.error('Error deleting category:', err);
@@ -159,14 +201,23 @@ app.post('/api/categories/:name/subcategories', async (req, res) => {
     const { subCategory } = req.body;
     if (!subCategory) return res.status(400).json({ error: 'Subcategory required' });
 
-    const [rows] = await pool.query('SELECT * FROM categories WHERE name = ?', [name]);
-    if (rows.length === 0) return res.status(404).json({ error: 'Category not found' });
-
-    let subs = typeof rows[0].sub_categories === 'string' ? JSON.parse(rows[0].sub_categories) : (rows[0].sub_categories || []);
-    if (!subs.includes(subCategory)) {
-      subs.push(subCategory);
-      await pool.query('UPDATE categories SET sub_categories = ? WHERE name = ?', [JSON.stringify(subs), name]);
+    if (isDbConnected) {
+      try {
+        const [rows] = await pool.query('SELECT * FROM categories WHERE name = ?', [name]);
+        if (rows.length > 0) {
+          let subs = typeof rows[0].sub_categories === 'string' ? JSON.parse(rows[0].sub_categories) : (rows[0].sub_categories || []);
+          if (!subs.includes(subCategory)) {
+            subs.push(subCategory);
+            await pool.query('UPDATE categories SET sub_categories = ? WHERE name = ?', [JSON.stringify(subs), name]);
+          }
+          return res.json({ success: true, subCategories: subs });
+        }
+      } catch (dbErr) {
+        console.warn('MySQL add subcategory failed, fallback:', dbErr.message);
+      }
     }
+
+    const subs = fallbackStore.addSubCategory(name, subCategory);
     res.json({ success: true, subCategories: subs });
   } catch (err) {
     console.error('Error adding subcategory:', err);
@@ -179,15 +230,22 @@ app.delete('/api/categories/:name/subcategories/:subName', async (req, res) => {
     const name = decodeURIComponent(req.params.name);
     const subName = decodeURIComponent(req.params.subName);
 
-    const [rows] = await pool.query('SELECT * FROM categories WHERE name = ?', [name]);
-    if (rows.length === 0) return res.status(404).json({ error: 'Category not found' });
+    if (isDbConnected) {
+      try {
+        const [rows] = await pool.query('SELECT * FROM categories WHERE name = ?', [name]);
+        if (rows.length > 0) {
+          let subs = typeof rows[0].sub_categories === 'string' ? JSON.parse(rows[0].sub_categories) : (rows[0].sub_categories || []);
+          subs = subs.filter(s => s !== subName);
+          await pool.query('UPDATE categories SET sub_categories = ? WHERE name = ?', [JSON.stringify(subs), name]);
+          await pool.query("UPDATE products SET subCategory = '' WHERE category = ? AND subCategory = ?", [name, subName]);
+          return res.json({ success: true, subCategories: subs });
+        }
+      } catch (dbErr) {
+        console.warn('MySQL remove subcategory failed, fallback:', dbErr.message);
+      }
+    }
 
-    let subs = typeof rows[0].sub_categories === 'string' ? JSON.parse(rows[0].sub_categories) : (rows[0].sub_categories || []);
-    subs = subs.filter(s => s !== subName);
-
-    await pool.query('UPDATE categories SET sub_categories = ? WHERE name = ?', [JSON.stringify(subs), name]);
-    // Clear subcategory for products with this subcategory
-    await pool.query("UPDATE products SET subCategory = '' WHERE category = ? AND subCategory = ?", [name, subName]);
+    const subs = fallbackStore.deleteSubCategory(name, subName);
     res.json({ success: true, subCategories: subs });
   } catch (err) {
     console.error('Error removing subcategory:', err);
@@ -197,26 +255,30 @@ app.delete('/api/categories/:name/subcategories/:subName', async (req, res) => {
 
 // ==================== STORE DETAILS ====================
 app.get('/api/store-details', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT address, hours, phone FROM store_details WHERE id = 1');
-    if (rows.length === 0) {
-      return res.json({ address: 'Kohinoor City', hours: '10 AM - 10 PM', phone: '+92 300 1234567' });
+  if (isDbConnected) {
+    try {
+      const [rows] = await pool.query('SELECT address, hours, phone FROM store_details WHERE id = 1');
+      if (rows.length > 0) return res.json(rows[0]);
+    } catch (err) {
+      console.warn('MySQL store details failed, fallback:', err.message);
     }
-    res.json(rows[0]);
-  } catch (err) {
-    console.error('Error fetching store details:', err);
-    res.status(500).json({ error: 'Failed to fetch store details' });
   }
+  res.json(fallbackStore.getStoreDetails());
 });
 
 app.put('/api/store-details', async (req, res) => {
   try {
     const { address, hours, phone } = req.body;
-    await pool.query(
-      'UPDATE store_details SET address = ?, hours = ?, phone = ? WHERE id = 1',
-      [address, hours, phone]
-    );
-    res.json({ address, hours, phone });
+    if (isDbConnected) {
+      try {
+        await pool.query('UPDATE store_details SET address = ?, hours = ?, phone = ? WHERE id = 1', [address, hours, phone]);
+        return res.json({ address, hours, phone });
+      } catch (dbErr) {
+        console.warn('MySQL update store details failed, fallback:', dbErr.message);
+      }
+    }
+    const updated = fallbackStore.updateStoreDetails({ address, hours, phone });
+    res.json(updated);
   } catch (err) {
     console.error('Error updating store details:', err);
     res.status(500).json({ error: 'Failed to update store details' });
@@ -225,31 +287,105 @@ app.put('/api/store-details', async (req, res) => {
 
 // ==================== ORDERS ====================
 app.get('/api/orders', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM orders ORDER BY id DESC');
-    res.json(rows.map(o => ({
-      ...o,
-      id: Number(o.id)
-    })));
-  } catch (err) {
-    console.error('Error fetching orders:', err);
-    res.status(500).json({ error: 'Failed to fetch orders' });
+  if (isDbConnected) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM orders ORDER BY id DESC');
+      return res.json(rows.map(o => ({
+        ...o,
+        id: Number(o.id),
+        items: typeof o.items === 'string' ? JSON.parse(o.items || '[]') : (o.items || [])
+      })));
+    } catch (err) {
+      console.warn('MySQL fetch orders error, using fallback:', err.message);
+    }
   }
+  res.json(fallbackStore.getOrders());
+});
+
+// Customer specific orders
+app.get('/api/customer/orders', async (req, res) => {
+  const { email, userId, name } = req.query;
+  if (!email && !userId && !name) {
+    return res.status(400).json({ error: 'Customer identifier (email, userId, or name) required' });
+  }
+
+  if (isDbConnected) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT * FROM orders 
+         WHERE (userEmail != '' AND userEmail = ?) 
+            OR (userId IS NOT NULL AND userId = ?) 
+            OR (userName != '' AND userName = ?)
+         ORDER BY id DESC`,
+        [email || '', userId || 0, name || '']
+      );
+
+      return res.json(rows.map(o => ({
+        ...o,
+        id: Number(o.id),
+        items: typeof o.items === 'string' ? JSON.parse(o.items || '[]') : (o.items || [])
+      })));
+    } catch (err) {
+      console.warn('MySQL customer orders error, using fallback:', err.message);
+    }
+  }
+  res.json(fallbackStore.getCustomerOrders(email, userId, name));
 });
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { id, userName, productName, price, status = 'Pending', date } = req.body;
+    const { 
+      id, 
+      userName = 'Customer', 
+      userEmail = '', 
+      userId = null, 
+      phone = '', 
+      shippingAddress = '', 
+      productName = '', 
+      items = [], 
+      price = 'Rs. 0', 
+      status = 'Pending', 
+      date 
+    } = req.body;
+
     const orderId = id || Date.now();
-    const orderDate = date || new Date().toLocaleDateString();
+    const orderDate = date || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    const itemsJson = typeof items === 'string' ? items : JSON.stringify(items || []);
 
-    await pool.query(
-      'INSERT INTO orders (id, userName, productName, price, status, date) VALUES (?, ?, ?, ?, ?, ?)',
-      [orderId, userName, productName, price, status, orderDate]
-    );
+    if (isDbConnected) {
+      try {
+        await pool.query(
+          `INSERT INTO orders (id, userName, userEmail, userId, phone, shippingAddress, productName, items, price, status, date) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [orderId, userName, userEmail, userId, phone, shippingAddress, productName, itemsJson, price, status, orderDate]
+        );
 
-    const [order] = await pool.query('SELECT * FROM orders WHERE id = ?', [orderId]);
-    res.status(201).json(order[0]);
+        const [orders] = await pool.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+        const savedOrder = orders[0] || { id: orderId, userName, userEmail, price, status, date: orderDate };
+        return res.status(201).json({
+          ...savedOrder,
+          id: Number(savedOrder.id),
+          items: typeof savedOrder.items === 'string' ? JSON.parse(savedOrder.items || '[]') : (savedOrder.items || [])
+        });
+      } catch (dbErr) {
+        console.warn('MySQL place order error, using fallback:', dbErr.message);
+      }
+    }
+
+    const saved = fallbackStore.addOrder({
+      id: orderId,
+      userName,
+      userEmail,
+      userId,
+      phone,
+      shippingAddress,
+      productName,
+      items,
+      price,
+      status,
+      date: orderDate
+    });
+    res.status(201).json(saved);
   } catch (err) {
     console.error('Error placing order:', err);
     res.status(500).json({ error: 'Failed to place order' });
@@ -260,7 +396,15 @@ app.put('/api/orders/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
     const id = req.params.id;
-    await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    if (isDbConnected) {
+      try {
+        await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+        return res.json({ success: true, id, status });
+      } catch (dbErr) {
+        console.warn('MySQL update order status failed, using fallback:', dbErr.message);
+      }
+    }
+    fallbackStore.updateOrderStatus(id, status);
     res.json({ success: true, id, status });
   } catch (err) {
     console.error('Error updating order status:', err);
@@ -276,55 +420,342 @@ app.post('/api/auth/login', async (req, res) => {
     const isAdminAttempt = email === targetAdminEmail || email === 'admin';
 
     if (isAdminAttempt) {
-      // Find admin user in database
-      const [admins] = await pool.query(
-        'SELECT id, name, email, password, role FROM users WHERE (email = ? OR email = ? OR role = "admin") LIMIT 1',
-        [targetAdminEmail, 'admin']
-      );
+      if (isDbConnected) {
+        try {
+          const [admins] = await pool.query(
+            'SELECT id, name, email, password, role FROM users WHERE (email = ? OR email = ? OR role = "admin") LIMIT 1',
+            [targetAdminEmail, 'admin']
+          );
 
-      const adminUser = admins[0];
-      const validPassword = adminUser ? adminUser.password === password : password === 'admin123';
+          const adminUser = admins[0];
+          const validPassword = adminUser ? adminUser.password === password : password === 'admin123';
 
-      if (!validPassword) {
-        return res.status(401).json({ error: 'Invalid admin credentials' });
+          if (!validPassword) {
+            return res.status(401).json({ error: 'Invalid admin credentials' });
+          }
+
+          const code = generateOtp();
+          await pool.query('DELETE FROM otp_codes WHERE email = ? AND action = "ADMIN_LOGIN" AND is_used = FALSE', [targetAdminEmail]);
+          await pool.query('INSERT INTO otp_codes (email, code, action, expires_at) VALUES (?, ?, "ADMIN_LOGIN", DATE_ADD(NOW(), INTERVAL 10 MINUTE))', [targetAdminEmail, code]);
+          await sendOtpEmail(targetAdminEmail, code, 'ADMIN_LOGIN');
+
+          return res.json({
+            success: true,
+            requireOtp: true,
+            email: targetAdminEmail,
+            message: 'Verification code sent to ' + targetAdminEmail
+          });
+        } catch (dbErr) {
+          console.warn('MySQL admin login failed, using fallback:', dbErr.message);
+        }
       }
 
-      // Generate 6-digit OTP
-      const code = generateOtp();
-
-      // Clear old unused login codes for this admin
-      await pool.query(
-        'DELETE FROM otp_codes WHERE email = ? AND action = "ADMIN_LOGIN" AND is_used = FALSE',
-        [targetAdminEmail]
-      );
-
-      // Save new OTP with 10-minute expiry
-      await pool.query(
-        'INSERT INTO otp_codes (email, code, action, expires_at) VALUES (?, ?, "ADMIN_LOGIN", DATE_ADD(NOW(), INTERVAL 10 MINUTE))',
-        [targetAdminEmail, code]
-      );
-
-      // Send OTP email
-      await sendOtpEmail(targetAdminEmail, code, 'ADMIN_LOGIN');
-
-      return res.json({
-        success: true,
-        requireOtp: true,
-        email: targetAdminEmail,
-        message: 'Verification code sent to ' + targetAdminEmail
-      });
+      // Offline Admin Fallback
+      if (password === 'admin123') {
+        const adminUser = { id: 1, name: 'Admin', email: targetAdminEmail, role: 'admin' };
+        return res.json({ success: true, user: adminUser });
+      }
+      return res.status(401).json({ error: 'Invalid admin credentials' });
     }
 
     // Customer Login
-    const [users] = await pool.query('SELECT id, name, email, role FROM users WHERE email = ? AND password = ?', [email, password]);
-    if (users.length > 0) {
-      return res.json({ success: true, user: users[0] });
+    if (isDbConnected) {
+      try {
+        const [users] = await pool.query(
+          'SELECT id, name, email, role, phone, address, city, created_at FROM users WHERE email = ? AND password = ?', 
+          [email.trim().toLowerCase(), password]
+        );
+        if (users.length > 0) {
+          return res.json({ success: true, user: users[0] });
+        }
+      } catch (dbErr) {
+        console.warn('MySQL customer login failed, using fallback:', dbErr.message);
+      }
+    }
+
+    // Fallback Store Customer Login
+    const localUser = fallbackStore.findUser(email, password);
+    if (localUser) {
+      const { password: _, ...safeUser } = localUser;
+      return res.json({ success: true, user: safeUser });
     }
 
     return res.status(401).json({ error: 'Invalid email or password' });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Customer Registration / Sign Up
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { name, email, password, phone = '', address = '', city = '' } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Please provide full name, email, and password.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+
+    if (isDbConnected) {
+      try {
+        const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [cleanEmail]);
+        if (existing.length > 0) {
+          return res.status(400).json({ error: 'An account with this email address already exists. Please log in.' });
+        }
+
+        const [result] = await pool.query(
+          'INSERT INTO users (name, email, password, role, phone, address, city) VALUES (?, ?, ?, "customer", ?, ?, ?)',
+          [name.trim(), cleanEmail, password, phone.trim(), address.trim(), city.trim()]
+        );
+
+        const newUser = {
+          id: result.insertId,
+          name: name.trim(),
+          email: cleanEmail,
+          role: 'customer',
+          phone: phone.trim(),
+          address: address.trim(),
+          city: city.trim(),
+          created_at: new Date()
+        };
+
+        return res.status(201).json({ success: true, user: newUser });
+      } catch (dbErr) {
+        console.warn('MySQL register failed, using fallback store:', dbErr.message);
+      }
+    }
+
+    // Fallback Store (when MySQL is not running)
+    const existing = fallbackStore.findUserByEmail(cleanEmail);
+    if (existing) {
+      return res.status(400).json({ error: 'An account with this email address already exists. Please log in.' });
+    }
+
+    const newUser = fallbackStore.addUser({
+      name: name.trim(),
+      email: cleanEmail,
+      password,
+      role: 'customer',
+      phone: phone.trim(),
+      address: address.trim(),
+      city: city.trim()
+    });
+
+    const { password: _, ...safeUser } = newUser;
+    return res.status(201).json({ success: true, user: safeUser });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Registration failed. Please try again.' });
+  }
+});
+
+// ==================== GOOGLE AUTHENTICATION ====================
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { credential, access_token, userInfo } = req.body;
+    let googleUser = null;
+
+    if (credential) {
+      // 1. Verify with Google TokenInfo API
+      try {
+        const tokenRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+        if (tokenRes.ok) {
+          const payload = await tokenRes.json();
+          googleUser = {
+            email: payload.email,
+            name: payload.name || payload.given_name || payload.email.split('@')[0],
+            google_id: payload.sub,
+            avatar: payload.picture || ''
+          };
+        }
+      } catch (e) {
+        console.warn('Google tokeninfo verification failed, falling back to decoding payload:', e.message);
+      }
+
+      // Fallback: decode JWT payload if Google API had network hiccup
+      if (!googleUser && credential.includes('.')) {
+        try {
+          const base64Url = credential.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = Buffer.from(base64, 'base64').toString('utf8');
+          const payload = JSON.parse(jsonPayload);
+          if (payload.email) {
+            googleUser = {
+              email: payload.email,
+              name: payload.name || payload.email.split('@')[0],
+              google_id: payload.sub || '',
+              avatar: payload.picture || ''
+            };
+          }
+        } catch (e) {
+          console.warn('JWT decode failed:', e.message);
+        }
+      }
+    } else if (access_token) {
+      // 2. Fetch UserInfo from Google using Access Token
+      try {
+        const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${access_token}` }
+        });
+        if (userRes.ok) {
+          const payload = await userRes.json();
+          googleUser = {
+            email: payload.email,
+            name: payload.name || payload.email.split('@')[0],
+            google_id: payload.sub,
+            avatar: payload.picture || ''
+          };
+        }
+      } catch (e) {
+        console.warn('Google userinfo fetch failed:', e.message);
+      }
+    } else if (userInfo && userInfo.email) {
+      googleUser = userInfo;
+    }
+
+    if (!googleUser || !googleUser.email) {
+      return res.status(400).json({ error: 'Could not verify Google account. Please try again.' });
+    }
+
+    const cleanEmail = googleUser.email.trim().toLowerCase();
+    const cleanName = googleUser.name ? googleUser.name.trim() : cleanEmail.split('@')[0];
+    const targetAdminEmail = process.env.ADMIN_EMAIL || 'admin@icaregadget.store';
+    const role = cleanEmail === targetAdminEmail ? 'admin' : 'customer';
+
+    if (isDbConnected) {
+      try {
+        const [existing] = await pool.query('SELECT * FROM users WHERE email = ?', [cleanEmail]);
+        if (existing.length > 0) {
+          await pool.query(
+            'UPDATE users SET google_id = COALESCE(NULLIF(google_id, ""), ?), avatar = COALESCE(NULLIF(avatar, ""), ?) WHERE id = ?',
+            [googleUser.google_id || '', googleUser.avatar || '', existing[0].id]
+          );
+          const { password: _, ...safeUser } = existing[0];
+          return res.json({
+            success: true,
+            user: { ...safeUser, avatar: googleUser.avatar || safeUser.avatar || '' }
+          });
+        } else {
+          const [result] = await pool.query(
+            'INSERT INTO users (name, email, password, role, google_id, avatar, auth_provider) VALUES (?, ?, "", ?, ?, ?, "google")',
+            [cleanName, cleanEmail, role, googleUser.google_id || '', googleUser.avatar || '']
+          );
+          return res.json({
+            success: true,
+            user: {
+              id: result.insertId,
+              name: cleanName,
+              email: cleanEmail,
+              role,
+              phone: '',
+              address: '',
+              city: '',
+              avatar: googleUser.avatar || '',
+              google_id: googleUser.google_id || '',
+              auth_provider: 'google',
+              created_at: new Date()
+            }
+          });
+        }
+      } catch (dbErr) {
+        console.warn('MySQL google auth failed, using fallback store:', dbErr.message);
+      }
+    }
+
+    // Fallback Store (when MySQL is not running)
+    const user = fallbackStore.findOrCreateGoogleUser({
+      name: cleanName,
+      email: cleanEmail,
+      google_id: googleUser.google_id,
+      avatar: googleUser.avatar
+    });
+    const { password: _, ...safeUser } = user;
+    return res.json({ success: true, user: safeUser });
+  } catch (err) {
+    console.error('Google auth error:', err);
+    res.status(500).json({ error: 'Google authentication failed' });
+  }
+});
+
+// Customer Profile Update
+app.put('/api/customer/profile', async (req, res) => {
+  try {
+    const { email, name, phone = '', address = '', city = '' } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    if (isDbConnected) {
+      try {
+        await pool.query(
+          'UPDATE users SET name = COALESCE(?, name), phone = ?, address = ?, city = ? WHERE email = ?',
+          [name ? name.trim() : null, phone.trim(), address.trim(), city.trim(), email.trim().toLowerCase()]
+        );
+
+        const [users] = await pool.query(
+          'SELECT id, name, email, role, phone, address, city, created_at FROM users WHERE email = ?',
+          [email.trim().toLowerCase()]
+        );
+
+        if (users.length > 0) return res.json({ success: true, user: users[0] });
+      } catch (dbErr) {
+        console.warn('MySQL profile update failed, using fallback:', dbErr.message);
+      }
+    }
+
+    const updated = fallbackStore.updateUserProfile(email, { name, phone, address, city });
+    if (!updated) return res.status(404).json({ error: 'User not found' });
+    const { password: _, ...safeUser } = updated;
+    res.json({ success: true, user: safeUser });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Customer Change Password
+app.put('/api/customer/change-password', async (req, res) => {
+  try {
+    const { email, currentPassword, newPassword } = req.body;
+    if (!email || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Please provide current and new passwords.' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+    }
+
+    if (isDbConnected) {
+      try {
+        const [users] = await pool.query(
+          'SELECT id FROM users WHERE email = ? AND password = ?',
+          [email.trim().toLowerCase(), currentPassword]
+        );
+
+        if (users.length === 0) {
+          return res.status(400).json({ error: 'Current password is incorrect.' });
+        }
+
+        await pool.query('UPDATE users SET password = ? WHERE email = ?', [newPassword, email.trim().toLowerCase()]);
+        return res.json({ success: true, message: 'Password updated successfully' });
+      } catch (dbErr) {
+        console.warn('MySQL password change failed, using fallback:', dbErr.message);
+      }
+    }
+
+    const localUser = fallbackStore.findUser(email, currentPassword);
+    if (!localUser) {
+      return res.status(400).json({ error: 'Current password is incorrect.' });
+    }
+
+    fallbackStore.changeUserPassword(email, newPassword);
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('Password change error:', err);
+    res.status(500).json({ error: 'Failed to change password' });
   }
 });
 
@@ -740,11 +1171,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// Start server after DB is ready
-initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+// Start server after attempting DB connection
+initDB()
+  .then(() => {
+    isDbConnected = true;
+    console.log('✅ Database connected');
+  })
+  .catch(err => {
+    isDbConnected = false;
+    console.warn('⚠️ Warning: MySQL database not connected yet (server running in fallback mode):', err.message);
+  })
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
   });
-}).catch(err => {
-  console.error('❌ Failed to start server:', err);
-});

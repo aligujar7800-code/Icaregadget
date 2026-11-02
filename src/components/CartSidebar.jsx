@@ -19,10 +19,15 @@ export default function CartSidebar() {
     }
     if (cart.length === 0) return;
     
-    placeOrder(user, cart, total);
+    placeOrder(user, cart, total, {
+      name: user.name,
+      email: user.email,
+      phone: user.phone || '',
+      address: user.address || ''
+    });
     clearCart();
-    alert('Order placed successfully! Check your account or the admin dashboard.');
     setIsCartOpen(false);
+    navigate('/account');
   };
 
   return (

@@ -19,7 +19,10 @@ export const StoreProvider = ({ children }) => {
     };
   });
 
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(() => {
+    const saved = localStorage.getItem('products');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const [orders, setOrders] = useState(() => {
     const saved = localStorage.getItem('orders');
@@ -54,8 +57,14 @@ export const StoreProvider = ({ children }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [registeredCustomers, setRegisteredCustomers] = useState(() => {
+    const saved = localStorage.getItem('registeredCustomers');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // Sync to localStorage as offline cache
   useEffect(() => { try { localStorage.setItem('user', JSON.stringify(user)); } catch(e){} }, [user]);
+  useEffect(() => { try { localStorage.setItem('registeredCustomers', JSON.stringify(registeredCustomers)); } catch(e){} }, [registeredCustomers]);
   useEffect(() => { try { localStorage.setItem('storeDetails', JSON.stringify(storeDetails)); } catch(e){} }, [storeDetails]);
   useEffect(() => { try { localStorage.setItem('products', JSON.stringify(products)); } catch(e){} }, [products]);
   useEffect(() => { try { localStorage.setItem('orders', JSON.stringify(orders)); } catch(e){} }, [orders]);
@@ -75,7 +84,7 @@ export const StoreProvider = ({ children }) => {
 
         if (prodRes && prodRes.ok) {
           const prodData = await prodRes.json();
-          if (Array.isArray(prodData)) {
+          if (Array.isArray(prodData) && prodData.length > 0) {
             setProducts(prodData);
           }
         }
@@ -87,7 +96,7 @@ export const StoreProvider = ({ children }) => {
         }
         if (orderRes && orderRes.ok) {
           const orderData = await orderRes.json();
-          if (Array.isArray(orderData)) {
+          if (Array.isArray(orderData) && orderData.length > 0) {
             setOrders(orderData);
           }
         }
@@ -262,11 +271,12 @@ export const StoreProvider = ({ children }) => {
 
   // Auth operations
   const login = async (email, password) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email: cleanEmail, password })
       });
       const data = await res.json();
       if (res.ok) {
@@ -275,14 +285,193 @@ export const StoreProvider = ({ children }) => {
         }
         if (data.user) {
           setUser(data.user);
-          return { role: data.user.role };
+          return { success: true, role: data.user.role, user: data.user };
         }
       }
-      return { error: data.error || 'Invalid credentials' };
+      if (res.status === 401 && data && data.error) {
+        const localMatch = registeredCustomers.find(
+          c => c.email.toLowerCase() === cleanEmail && c.password === password
+        );
+        if (localMatch) {
+          const { password: _, ...safeUser } = localMatch;
+          setUser(safeUser);
+          return { success: true, role: 'customer', user: safeUser };
+        }
+        return { error: data.error };
+      }
     } catch (err) {
-      console.error('API login error:', err);
-      return { error: 'Connection error. Please try again.' };
+      console.warn('API login error, checking local store:', err);
     }
+
+    // Offline / LocalStorage Fallback
+    const localMatch = registeredCustomers.find(
+      c => c.email.toLowerCase() === cleanEmail && c.password === password
+    );
+    if (localMatch) {
+      const { password: _, ...safeUser } = localMatch;
+      setUser(safeUser);
+      return { success: true, role: 'customer', user: safeUser };
+    }
+
+    // Default admin fallback when offline
+    if ((cleanEmail === 'admin@icaregadget.store' || cleanEmail === 'admin') && password === 'admin123') {
+      const adminUser = { id: 1, name: 'Admin', email: 'admin@icaregadget.store', role: 'admin' };
+      setUser(adminUser);
+      return { success: true, role: 'admin', user: adminUser };
+    }
+
+    return { error: 'Invalid email or password.' };
+  };
+
+  const register = async (name, email, password, phone = '', address = '', city = '') => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanName = (name || '').trim();
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cleanName, email: cleanEmail, password, phone, address, city })
+      });
+      const data = await res.json();
+      if (res.ok && data.user) {
+        setUser(data.user);
+        setRegisteredCustomers(prev => {
+          const filtered = prev.filter(c => c.email.toLowerCase() !== cleanEmail);
+          return [...filtered, { ...data.user, password }];
+        });
+        return { success: true, user: data.user };
+      }
+      if (res.status === 400 && data && data.error) {
+        return { error: data.error };
+      }
+    } catch (err) {
+      console.warn('API register error, falling back to local storage:', err);
+    }
+
+    // Offline / LocalStorage fallback
+    const alreadyExists = registeredCustomers.some(c => c.email.toLowerCase() === cleanEmail);
+    if (alreadyExists) {
+      return { error: 'An account with this email already exists. Please log in.' };
+    }
+
+    const newUser = {
+      id: Date.now(),
+      name: cleanName || cleanEmail.split('@')[0],
+      email: cleanEmail,
+      role: 'customer',
+      phone: phone.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      created_at: new Date().toISOString()
+    };
+
+    setRegisteredCustomers(prev => [...prev, { ...newUser, password }]);
+    setUser(newUser);
+    return { success: true, user: newUser };
+  };
+
+  const loginWithGoogle = async (googleData) => {
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(googleData)
+      });
+      const data = await res.json();
+      if (res.ok && data.user) {
+        setUser(data.user);
+        setRegisteredCustomers(prev => {
+          const filtered = prev.filter(c => c.email.toLowerCase() !== data.user.email.toLowerCase());
+          return [...filtered, data.user];
+        });
+        return { success: true, role: data.user.role, user: data.user };
+      }
+      if (data && data.error) {
+        return { error: data.error };
+      }
+    } catch (err) {
+      console.warn('API Google login error, fallback to client decoded user:', err);
+    }
+
+    // Client-side fallback if backend was unavailable
+    if (googleData?.userInfo?.email) {
+      const cleanEmail = googleData.userInfo.email.trim().toLowerCase();
+      const targetAdmin = 'admin@icaregadget.store';
+      const fallbackUser = {
+        id: Date.now(),
+        name: googleData.userInfo.name || cleanEmail.split('@')[0],
+        email: cleanEmail,
+        role: cleanEmail === targetAdmin ? 'admin' : 'customer',
+        avatar: googleData.userInfo.avatar || '',
+        auth_provider: 'google',
+        created_at: new Date().toISOString()
+      };
+      setUser(fallbackUser);
+      setRegisteredCustomers(prev => [...prev.filter(c => c.email.toLowerCase() !== cleanEmail), fallbackUser]);
+      return { success: true, role: fallbackUser.role, user: fallbackUser };
+    }
+
+    return { error: 'Failed to authenticate with Google. Please try again.' };
+  };
+
+  const updateCustomerProfile = async (profileData) => {
+    if (!user) return { error: 'You must be logged in' };
+    const email = user.email;
+
+    try {
+      const res = await fetch('/api/customer/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, ...profileData })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setUser(prev => ({ ...prev, ...data.user }));
+          setRegisteredCustomers(prev => prev.map(c => c.email === email ? { ...c, ...data.user } : c));
+          return { success: true, user: data.user };
+        }
+      }
+    } catch (err) {
+      console.warn('Profile update API error, updating locally:', err);
+    }
+
+    const updated = { ...user, ...profileData };
+    setUser(updated);
+    setRegisteredCustomers(prev => prev.map(c => c.email === email ? { ...c, ...profileData } : c));
+    return { success: true, user: updated };
+  };
+
+  const changeCustomerPassword = async (currentPassword, newPassword) => {
+    if (!user) return { error: 'You must be logged in' };
+    try {
+      const res = await fetch('/api/customer/change-password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, currentPassword, newPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        return { success: true, message: data.message || 'Password changed successfully' };
+      }
+      if (data && data.error) {
+        return { error: data.error };
+      }
+    } catch (err) {
+      console.warn('Change password API error, updating locally:', err);
+    }
+
+    // Local check
+    const local = registeredCustomers.find(c => c.email.toLowerCase() === user.email.toLowerCase());
+    if (local && local.password && local.password !== currentPassword) {
+      return { error: 'Current password does not match.' };
+    }
+
+    setRegisteredCustomers(prev => prev.map(c => (
+      c.email.toLowerCase() === user.email.toLowerCase() ? { ...c, password: newPassword } : c
+    )));
+    return { success: true, message: 'Password updated successfully!' };
   };
 
   const verifyAdminOtp = async (email, code) => {
@@ -355,46 +544,35 @@ export const StoreProvider = ({ children }) => {
     }
   };
 
-  const register = async (name, email, password) => {
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.user) {
-          setUser(data.user);
-          return data.user.role;
-        }
-      }
-    } catch (err) {
-      console.error('API register error, fallback to local:', err);
-    }
-    const custUser = { role: 'customer', name: name || email.split('@')[0], email };
-    setUser(custUser);
-    return 'customer';
+
+  const logout = () => {
+    setUser(null);
   };
 
-  const loginWithGoogle = () => {
-    const custUser = { role: 'customer', name: 'Google User', email: 'google_user@icare.com' };
-    setUser(custUser);
-    return 'customer';
-  };
-
-  const logout = () => setUser(null);
-
-  // Orders backed by MySQL
-  const placeOrder = async (orderUser, cartItems, totalAmount) => {
+  // Orders backed by MySQL + LocalStorage
+  const placeOrder = async (orderUser, cartItems, totalAmount, shippingInfo = {}) => {
     const productNames = cartItems.map(item => `${item.quantity}x ${item.name}`).join(', ');
+    const orderId = Date.now();
+    const orderItems = cartItems.map(item => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      image: item.image || (item.images && item.images[0]) || ''
+    }));
+
     const newOrder = {
-      id: Date.now(),
-      userName: orderUser?.name || 'Customer',
+      id: orderId,
+      userName: shippingInfo.name || orderUser?.name || 'Customer',
+      userEmail: orderUser?.email || shippingInfo.email || '',
+      userId: orderUser?.id || null,
+      phone: shippingInfo.phone || orderUser?.phone || '',
+      shippingAddress: shippingInfo.address || orderUser?.address || '',
       productName: productNames,
+      items: orderItems,
       price: `Rs. ${totalAmount.toLocaleString()}`,
       status: 'Pending',
-      date: new Date().toLocaleDateString()
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
     };
 
     try {
@@ -416,9 +594,23 @@ export const StoreProvider = ({ children }) => {
     return newOrder;
   };
 
+  const getCustomerOrders = () => {
+    if (!user) return [];
+    const userEmail = (user.email || '').toLowerCase().trim();
+    const userName = (user.name || '').toLowerCase().trim();
+    return orders.filter(o => {
+      const orderEmail = (o.userEmail || '').toLowerCase().trim();
+      const orderUser = (o.userName || '').toLowerCase().trim();
+      return (orderEmail && orderEmail === userEmail) ||
+             (user.id && o.userId === user.id) ||
+             (orderUser && orderUser === userName);
+    });
+  };
+
   return (
     <StoreContext.Provider value={{ 
       user, login, register, loginWithGoogle, logout,
+      updateCustomerProfile, changeCustomerPassword, getCustomerOrders,
       verifyAdminOtp, resendAdminOtp, requestPasswordOtp, changeAdminPassword,
       storeDetails, updateStoreDetails, 
       categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory,
