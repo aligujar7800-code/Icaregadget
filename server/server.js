@@ -1120,17 +1120,26 @@ app.post('/api/chat/admin', async (req, res) => {
       FROM orders
     `);
 
-    const [productStats] = await pool.query(`
-      SELECT 
-        COUNT(*) as totalProducts,
-        SUM(CASE WHEN bestSeller = 1 THEN 1 ELSE 0 END) as bestSellers,
-        SUM(CASE WHEN sale = 1 THEN 1 ELSE 0 END) as onSale
-      FROM products
+    const [productRows] = await pool.query(`
+      SELECT id, name, price, bestSeller, sale, category 
+      FROM products 
+      ORDER BY bestSeller DESC, id ASC
     `);
+
+    const bestSellersList = productRows.filter(p => p.bestSeller == 1).map(p => `${p.name} (PKR ${p.price})`);
+    const onSaleList = productRows.filter(p => p.sale == 1).map(p => `${p.name} (PKR ${p.price})`);
+    const allProductsList = productRows.map(p => `${p.name} (PKR ${p.price}, Cat: ${p.category}${p.bestSeller ? ', Best Seller' : ''}${p.sale ? ', On Sale' : ''})`);
 
     const liveStats = {
       orders: orderStats[0] || {},
-      products: productStats[0] || {}
+      productsSummary: {
+        totalProducts: productRows.length,
+        bestSellersCount: bestSellersList.length,
+        onSaleCount: onSaleList.length,
+        bestSellerProducts: bestSellersList,
+        onSaleProducts: onSaleList,
+        catalog: allProductsList
+      }
     };
 
     const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/website-chat';
@@ -1138,18 +1147,21 @@ app.post('/api/chat/admin', async (req, res) => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 20000);
 
+      const payload = {
+        channel: 'website',
+        businessId: process.env.BUSINESS_ID || 'icare',
+        role: 'admin',
+        message: (message || '').trim(),
+        storeContext: liveStats,
+        audio: audio || null,
+        senderName: 'Store Admin',
+        history
+      };
+
       let n8nRes = await fetch(n8nWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channel: 'website',
-          businessId: process.env.BUSINESS_ID || 'icare',
-          role: 'admin',
-          message: `${(message || '').trim()}\n\n[Live Store Data: ${JSON.stringify(liveStats)}]`,
-          audio: audio || null,
-          senderName: 'Store Admin',
-          history
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal
       });
 
@@ -1159,15 +1171,7 @@ app.post('/api/chat/admin', async (req, res) => {
           const testRes = await fetch(testUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              channel: 'website',
-              businessId: process.env.BUSINESS_ID || 'icare',
-              role: 'admin',
-              message: `${(message || '').trim()}\n\n[Live Store Data: ${JSON.stringify(liveStats)}]`,
-              audio: audio || null,
-              senderName: 'Store Admin',
-              history
-            }),
+            body: JSON.stringify(payload),
             signal: controller.signal
           });
           if (testRes.ok) n8nRes = testRes;
@@ -1190,9 +1194,11 @@ app.post('/api/chat/admin', async (req, res) => {
       console.warn('n8n admin call error:', n8nErr.message);
     }
 
-    // Direct Analytical response fallback
+    // Direct Analytical response fallback with real product names
     const rev = Number(liveStats.orders.totalRevenue || 0).toLocaleString();
-    const reply = `**Live Store Analytics:**\n- **Total Revenue:** PKR ${rev}\n- **Orders:** ${liveStats.orders.totalOrders || 0} total (${liveStats.orders.pendingOrders || 0} pending, ${liveStats.orders.deliveredOrders || 0} delivered)\n- **Products in Catalog:** ${liveStats.products.totalProducts || 0} (${liveStats.products.bestSellers || 0} Best Sellers, ${liveStats.products.onSale || 0} on sale)\n\nWhat specific business insights or recommendations would you like?`;
+    const bestSellersText = bestSellersList.length > 0 ? bestSellersList.join(', ') : 'None marked';
+    const onSaleText = onSaleList.length > 0 ? onSaleList.join(', ') : 'None currently';
+    const reply = `**Live Store Analytics:**\n- **Total Revenue:** PKR ${rev}\n- **Orders:** ${liveStats.orders.totalOrders || 0} total (${liveStats.orders.pendingOrders || 0} pending, ${liveStats.orders.deliveredOrders || 0} delivered)\n- **Products in Catalog (${liveStats.productsSummary.totalProducts}):**\n  - **Best Sellers:** ${bestSellersText}\n  - **On Sale:** ${onSaleText}\n\nWhat specific business insights or recommendations would you like?`;
     return res.json({ success: true, reply, audio: null });
 
   } catch (err) {
