@@ -67,6 +67,8 @@ export default function AdminDashboard() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiRecording, setAiRecording] = useState(false);
   const [aiMuted, setAiMuted] = useState(false);
+  const [aiLiveTranscript, setAiLiveTranscript] = useState('');
+  const aiRecognitionRef = useRef(null);
   const aiMediaRecorderRef = useRef(null);
   const aiAudioChunksRef = useRef([]);
   const aiCurrentAudioRef = useRef(null);
@@ -96,7 +98,8 @@ export default function AdminDashboard() {
     if (!text && !audioBase64) return;
     if (aiLoading) return;
 
-    const displayMsg = text || "🎙️ [Voice Command]";
+    // Immediately display the user's spoken or typed words in chat
+    const displayMsg = text || (audioBase64 ? "🎙️ Transcribing voice command..." : "");
     const updated = [...aiMessages, { role: 'user', content: displayMsg }];
     setAiMessages(updated);
     setAiInput('');
@@ -114,7 +117,14 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       const reply = data.reply || "I'm having a brief connection issue. Please try again.";
-      setAiMessages([...updated, { role: 'assistant', content: reply, audio: data.audio }]);
+
+      // Replace the temporary transcription placeholder with the real transcribed text
+      const finalUserText = data.userText || text || "🎙️ [Voice Command]";
+      setAiMessages([
+        ...aiMessages,
+        { role: 'user', content: finalUserText },
+        { role: 'assistant', content: reply, audio: data.audio }
+      ]);
 
       if (data.audio) {
         playAiVoice(data.audio);
@@ -122,7 +132,12 @@ export default function AdminDashboard() {
         speakAiText(reply);
       }
     } catch (err) {
-      setAiMessages([...updated, { role: 'assistant', content: "Failed to connect to AI server: " + err.message }]);
+      const finalUserText = text || "🎙️ [Voice Command]";
+      setAiMessages([
+        ...aiMessages,
+        { role: 'user', content: finalUserText },
+        { role: 'assistant', content: "Failed to connect to AI server: " + err.message }
+      ]);
     } finally {
       setAiLoading(false);
     }
@@ -135,22 +150,51 @@ export default function AdminDashboard() {
       const mediaRecorder = new MediaRecorder(stream);
       aiMediaRecorderRef.current = mediaRecorder;
 
+      let recognizedSpeech = '';
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        try {
+          const rec = new SpeechRecognition();
+          rec.continuous = true;
+          rec.interimResults = true;
+          rec.lang = 'en-US';
+          rec.onresult = (e) => {
+            let str = '';
+            for (let i = 0; i < e.results.length; i++) {
+              str += e.results[i][0].transcript;
+            }
+            recognizedSpeech = str;
+            setAiLiveTranscript(str);
+          };
+          rec.onerror = (e) => console.warn('SpeechRecognition error:', e);
+          rec.start();
+          aiRecognitionRef.current = rec;
+        } catch (e) {
+          console.warn('SpeechRecognition error:', e);
+        }
+      }
+
       mediaRecorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) aiAudioChunksRef.current.push(e.data);
       };
 
       mediaRecorder.onstop = () => {
+        if (aiRecognitionRef.current) {
+          try { aiRecognitionRef.current.stop(); } catch (_) {}
+        }
         const blob = new Blob(aiAudioChunksRef.current, { type: 'audio/webm' });
         stream.getTracks().forEach(t => t.stop());
         const reader = new FileReader();
         reader.readAsDataURL(blob);
         reader.onloadend = () => {
-          handleAiSend(undefined, reader.result);
+          handleAiSend(recognizedSpeech, reader.result);
+          setAiLiveTranscript('');
         };
       };
 
       mediaRecorder.start();
       setAiRecording(true);
+      setAiLiveTranscript('');
     } catch (err) {
       console.warn("Microphone denied:", err);
       alert("Please allow microphone access to use voice commands.");
@@ -158,9 +202,12 @@ export default function AdminDashboard() {
   };
 
   const stopAiRecording = () => {
-    if (aiMediaRecorderRef.current && aiRecording) {
-      aiMediaRecorderRef.current.stop();
+    if (mediaRecorderRef.current && aiRecording) {
+      mediaRecorderRef.current.stop();
       setAiRecording(false);
+    }
+    if (aiRecognitionRef.current) {
+      try { aiRecognitionRef.current.stop(); } catch (_) {}
     }
   };
 

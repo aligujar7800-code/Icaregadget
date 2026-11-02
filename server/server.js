@@ -1054,6 +1054,7 @@ app.post('/api/chat', async (req, res) => {
           success: true, 
           reply: replyText,
           audio: data.audio || null,
+          userText: data.userText || (message || null),
           business: data.business || 'I Care Gadget'
         });
       } else {
@@ -1185,7 +1186,8 @@ app.post('/api/chat/admin', async (req, res) => {
         return res.json({ 
           success: true, 
           reply: data.reply || data.message || data.output,
-          audio: data.audio || null
+          audio: data.audio || null,
+          userText: data.userText || (message || null)
         });
       } else {
         console.warn('n8n admin webhook responded with status ' + n8nRes.status);

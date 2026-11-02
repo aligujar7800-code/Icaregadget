@@ -20,6 +20,8 @@ export default function CustomerChatWidget() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const recognitionRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -77,8 +79,9 @@ export default function CustomerChatWidget() {
     if (!text && !audioBase64) return;
     if (loading) return;
 
-    const displayUserText = text || "🎙️ [Voice Inquiry]";
-    const newMessages = [...messages, { role: 'user', content: displayUserText }];
+    // Immediately display the user's spoken or typed words in chat
+    const initialUserText = text || (audioBase64 ? "🎙️ Transcribing voice..." : "");
+    const newMessages = [...messages, { role: 'user', content: initialUserText }];
     setMessages(newMessages);
     setInput('');
     setLoading(true);
@@ -102,7 +105,15 @@ export default function CustomerChatWidget() {
 
       const data = await res.json();
       const reply = data.reply || "I'm having a brief connection issue. Please give me a moment and ask again!";
-      setMessages([...newMessages, { role: 'assistant', content: reply, audio: data.audio }]);
+
+      // Replace the temporary transcription placeholder with the exact text transcribed by AI
+      const finalUserText = data.userText || text || "🎙️ [Voice Inquiry]";
+      const updatedMessages = [
+        ...messages,
+        { role: 'user', content: finalUserText },
+        { role: 'assistant', content: reply, audio: data.audio }
+      ];
+      setMessages(updatedMessages);
 
       if (data.audio) {
         playVoice(data.audio);
@@ -110,8 +121,10 @@ export default function CustomerChatWidget() {
         speakTextFallback(reply);
       }
     } catch (err) {
+      const finalUserText = text || "🎙️ [Voice Inquiry]";
       setMessages([
-        ...newMessages,
+        ...messages,
+        { role: 'user', content: finalUserText },
         {
           role: 'assistant',
           content: "Sorry, I couldn't connect right now. You can also reach our store directly at +92 300 1234567!"
@@ -129,6 +142,30 @@ export default function CustomerChatWidget() {
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
+      let recognizedSpeech = '';
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'en-US';
+          recognition.onresult = (event) => {
+            let str = '';
+            for (let i = 0; i < event.results.length; i++) {
+              str += event.results[i][0].transcript;
+            }
+            recognizedSpeech = str;
+            setLiveTranscript(str);
+          };
+          recognition.onerror = (e) => console.warn('SpeechRecognition error:', e);
+          recognition.start();
+          recognitionRef.current = recognition;
+        } catch (e) {
+          console.warn('SpeechRecognition not available:', e);
+        }
+      }
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
@@ -136,6 +173,9 @@ export default function CustomerChatWidget() {
       };
 
       mediaRecorder.onstop = async () => {
+        if (recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch (_) {}
+        }
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         stream.getTracks().forEach(track => track.stop());
 
@@ -143,13 +183,15 @@ export default function CustomerChatWidget() {
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
           const base64Data = reader.result;
-          handleSend("", base64Data);
+          handleSend(recognizedSpeech, base64Data);
+          setLiveTranscript('');
         };
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingSeconds(0);
+      setLiveTranscript('');
       timerRef.current = setInterval(() => {
         setRecordingSeconds(s => s + 1);
       }, 1000);
@@ -164,6 +206,9 @@ export default function CustomerChatWidget() {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (timerRef.current) clearInterval(timerRef.current);
+    }
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (_) {}
     }
   };
 
@@ -448,7 +493,7 @@ export default function CustomerChatWidget() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ width: '10px', height: '10px', backgroundColor: '#dc2626', borderRadius: '50%', animation: 'pulse 1s infinite' }} />
-                <span>Listening... ({recordingSeconds}s)</span>
+                <span>{liveTranscript ? `"${liveTranscript}"` : `Listening... (${recordingSeconds}s)`}</span>
               </div>
               <button
                 type="button"
