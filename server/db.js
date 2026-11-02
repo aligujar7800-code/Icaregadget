@@ -66,7 +66,12 @@ export async function initDB() {
       CREATE TABLE IF NOT EXISTS orders (
         id BIGINT PRIMARY KEY,
         userName VARCHAR(255) NOT NULL,
+        userEmail VARCHAR(255) DEFAULT '',
+        userId INT DEFAULT NULL,
+        phone VARCHAR(50) DEFAULT '',
+        shippingAddress TEXT,
         productName TEXT NOT NULL,
+        items JSON,
         price VARCHAR(100) NOT NULL,
         status VARCHAR(50) DEFAULT 'Pending',
         date VARCHAR(100) NOT NULL,
@@ -92,6 +97,9 @@ export async function initDB() {
         email VARCHAR(255) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
         role VARCHAR(50) DEFAULT 'customer',
+        phone VARCHAR(50) DEFAULT '',
+        address TEXT,
+        city VARCHAR(100) DEFAULT '',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
@@ -151,8 +159,33 @@ export async function initDB() {
         );
       }
     }
+    // Safe column migrations for existing databases
+    const safeAddColumn = async (table, colName, colType) => {
+      try {
+        const [existing] = await connection.query(
+          `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+          [table, colName]
+        );
+        if (existing.length === 0) {
+          await connection.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${colName}\` ${colType}`);
+        }
+      } catch (err) {
+        // Silently skip if column exists or fails
+      }
+    };
 
+    await safeAddColumn('users', 'phone', "VARCHAR(50) DEFAULT ''");
+    await safeAddColumn('users', 'address', 'TEXT');
+    await safeAddColumn('users', 'city', "VARCHAR(100) DEFAULT ''");
+    await safeAddColumn('users', 'google_id', "VARCHAR(100) DEFAULT ''");
+    await safeAddColumn('users', 'avatar', "TEXT");
+    await safeAddColumn('users', 'auth_provider', "VARCHAR(50) DEFAULT 'local'");
 
+    await safeAddColumn('orders', 'userEmail', "VARCHAR(255) DEFAULT ''");
+    await safeAddColumn('orders', 'userId', 'INT DEFAULT NULL');
+    await safeAddColumn('orders', 'phone', "VARCHAR(50) DEFAULT ''");
+    await safeAddColumn('orders', 'shippingAddress', 'TEXT');
+    await safeAddColumn('orders', 'items', 'JSON');
 
     console.log('✅ MySQL Database initialized successfully');
   } catch (err) {

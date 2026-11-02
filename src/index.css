@@ -1562,6 +1562,14 @@ button {
     align-items: flex-start !important;
     gap: 16px;
   }
+
+  /* Customer Dashboard Optimization */
+  .customer-dashboard-layout {
+    grid-template-columns: 1fr !important;
+  }
+  .desktop-only {
+    display: none !important;
+  }
 }
 
 /* Reduced Motion */

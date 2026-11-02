@@ -15,6 +15,7 @@ import WarrantyPage from './pages/WarrantyPage';
 import SearchPage from './pages/SearchPage';
 import LoginPage from './pages/LoginPage';
 import AdminDashboard from './pages/AdminDashboard';
+import CustomerDashboard from './pages/CustomerDashboard';
 import { StoreProvider } from './context/StoreContext';
 import CartSidebar from './components/CartSidebar';
 import MobileNavSidebar from './components/MobileNavSidebar';
@@ -45,6 +46,8 @@ function App() {
             <Route path="/warranty" element={<WarrantyPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/account" element={<CustomerDashboard />} />
+            <Route path="/customer/dashboard" element={<CustomerDashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
           </Routes>
           <Footer />
