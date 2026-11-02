@@ -115,14 +115,18 @@ if "!unpushed_count!"=="0" (
     echo ========================================================
 )
 echo.
-pause
-exit /b 0
+set "exit_code=0"
+goto :end
 
 :fail
 echo.
 echo ========================================================
 echo  [FAILED] Release incomplete. Code was not fully pushed.
 echo ========================================================
+set "exit_code=1"
+goto :end
+
+:end
 echo.
 pause
-exit /b 1
+exit /b !exit_code!
