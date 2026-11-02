@@ -65,12 +65,39 @@ export default function AdminDashboard() {
   ]);
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiRecording, setAiRecording] = useState(false);
+  const [aiMuted, setAiMuted] = useState(false);
+  const aiMediaRecorderRef = useRef(null);
+  const aiAudioChunksRef = useRef([]);
+  const aiCurrentAudioRef = useRef(null);
 
-  const handleAiSend = async (customPrompt) => {
-    const text = (customPrompt || aiInput).trim();
-    if (!text || aiLoading) return;
+  const playAiVoice = (audioSrc) => {
+    if (!audioSrc || aiMuted) return;
+    try {
+      if (aiCurrentAudioRef.current) aiCurrentAudioRef.current.pause();
+      const sound = new Audio(audioSrc);
+      aiCurrentAudioRef.current = sound;
+      sound.play().catch(e => console.warn('Audio auto-play blocked:', e));
+    } catch (e) {
+      console.warn('Playback error:', e);
+    }
+  };
 
-    const updated = [...aiMessages, { role: 'user', content: text }];
+  const speakAiText = (text) => {
+    if (aiMuted || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.05;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleAiSend = async (customPrompt, audioBase64 = null) => {
+    const text = (customPrompt !== undefined ? customPrompt : aiInput).trim();
+    if (!text && !audioBase64) return;
+    if (aiLoading) return;
+
+    const displayMsg = text || "🎙️ [Voice Command]";
+    const updated = [...aiMessages, { role: 'user', content: displayMsg }];
     setAiMessages(updated);
     setAiInput('');
     setAiLoading(true);
@@ -81,16 +108,59 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
+          audio: audioBase64,
           history: updated.slice(-6).map(m => ({ role: m.role, content: m.content }))
         })
       });
       const data = await res.json();
       const reply = data.reply || "I'm having a brief connection issue. Please try again.";
-      setAiMessages([...updated, { role: 'assistant', content: reply }]);
+      setAiMessages([...updated, { role: 'assistant', content: reply, audio: data.audio }]);
+
+      if (data.audio) {
+        playAiVoice(data.audio);
+      } else {
+        speakAiText(reply);
+      }
     } catch (err) {
       setAiMessages([...updated, { role: 'assistant', content: "Failed to connect to AI server: " + err.message }]);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const startAiRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      aiAudioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      aiMediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) aiAudioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(aiAudioChunksRef.current, { type: 'audio/webm' });
+        stream.getTracks().forEach(t => t.stop());
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+          handleAiSend(undefined, reader.result);
+        };
+      };
+
+      mediaRecorder.start();
+      setAiRecording(true);
+    } catch (err) {
+      console.warn("Microphone denied:", err);
+      alert("Please allow microphone access to use voice commands.");
+    }
+  };
+
+  const stopAiRecording = () => {
+    if (aiMediaRecorderRef.current && aiRecording) {
+      aiMediaRecorderRef.current.stop();
+      setAiRecording(false);
     }
   };
 

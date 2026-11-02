@@ -17,7 +17,15 @@ export default function CustomerChatWidget() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [unread, setUnread] = useState(1);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+
   const messagesEndRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const timerRef = useRef(null);
+  const currentAudioRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -30,6 +38,33 @@ export default function CustomerChatWidget() {
     }
   }, [isOpen, messages]);
 
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (currentAudioRef.current) currentAudioRef.current.pause();
+    };
+  }, []);
+
+  const playVoice = (audioSrc) => {
+    if (!audioSrc || isMuted) return;
+    try {
+      if (currentAudioRef.current) currentAudioRef.current.pause();
+      const sound = new Audio(audioSrc);
+      currentAudioRef.current = sound;
+      sound.play().catch(e => console.warn('Audio auto-play blocked by browser:', e));
+    } catch (e) {
+      console.warn('Playback error:', e);
+    }
+  };
+
+  const speakTextFallback = (text) => {
+    if (isMuted || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.05;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const quickPrompts = [
     "🔥 Best Sellers",
     "⚡ iPhone 20W Charger",
@@ -37,11 +72,13 @@ export default function CustomerChatWidget() {
     "📍 Store Location & Hours"
   ];
 
-  const handleSend = async (textToSend) => {
-    const text = (textToSend || input).trim();
-    if (!text || loading) return;
+  const handleSend = async (textToSend, audioBase64 = null) => {
+    const text = (textToSend !== undefined ? textToSend : input).trim();
+    if (!text && !audioBase64) return;
+    if (loading) return;
 
-    const newMessages = [...messages, { role: 'user', content: text }];
+    const displayUserText = text || "🎙️ [Voice Inquiry]";
+    const newMessages = [...messages, { role: 'user', content: displayUserText }];
     setMessages(newMessages);
     setInput('');
     setLoading(true);
@@ -58,13 +95,20 @@ export default function CustomerChatWidget() {
           businessId: 'icare',
           role: 'customer',
           message: text,
+          audio: audioBase64,
           history: history
         })
       });
 
       const data = await res.json();
       const reply = data.reply || "I'm having a brief connection issue. Please give me a moment and ask again!";
-      setMessages([...newMessages, { role: 'assistant', content: reply }]);
+      setMessages([...newMessages, { role: 'assistant', content: reply, audio: data.audio }]);
+
+      if (data.audio) {
+        playVoice(data.audio);
+      } else {
+        speakTextFallback(reply);
+      }
     } catch (err) {
       setMessages([
         ...newMessages,
@@ -75,6 +119,51 @@ export default function CustomerChatWidget() {
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64Data = reader.result;
+          handleSend("", base64Data);
+        };
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      timerRef.current = setInterval(() => {
+        setRecordingSeconds(s => s + 1);
+      }, 1000);
+    } catch (err) {
+      console.warn("Microphone access denied:", err);
+      alert("Please allow microphone permissions to record a voice message.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (timerRef.current) clearInterval(timerRef.current);
     }
   };
 
@@ -109,32 +198,28 @@ export default function CustomerChatWidget() {
             e.currentTarget.style.boxShadow = '0 10px 25px rgba(0,0,0,0.3)';
           }}
         >
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span style={{
-              position: 'absolute',
-              top: '-3px',
-              right: '-3px',
-              width: '9px',
-              height: '9px',
-              backgroundColor: '#10b981',
-              borderRadius: '50%',
-              border: '2px solid #0a0a0a'
-            }} />
-          </div>
-          <span>Chat with AI</span>
+          <span style={{ fontSize: '18px' }}>💬</span>
+          <span>Chat with Store AI</span>
           {unread > 0 && (
-            <span style={{
-              backgroundColor: '#ff6a00',
-              color: '#ffffff',
-              fontSize: '11px',
-              fontWeight: 700,
-              padding: '2px 7px',
-              borderRadius: '9999px'
-            }}>
-              1
+            <span
+              style={{
+                position: 'absolute',
+                top: '-4px',
+                right: '-4px',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                fontSize: '11px',
+                fontWeight: 700,
+                borderRadius: '9999px',
+                width: '20px',
+                height: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 5px rgba(239,68,68,0.5)'
+              }}
+            >
+              {unread}
             </span>
           )}
         </button>
@@ -142,155 +227,182 @@ export default function CustomerChatWidget() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div style={{
-          width: '380px',
-          maxWidth: 'calc(100vw - 32px)',
-          height: '560px',
-          maxHeight: 'calc(100vh - 100px)',
-          backgroundColor: '#ffffff',
-          borderRadius: '20px',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          border: '1px solid #e5e7eb',
-          animation: 'fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}>
+        <div
+          style={{
+            width: '380px',
+            maxWidth: 'calc(100vw - 32px)',
+            height: '560px',
+            maxHeight: 'calc(100vh - 100px)',
+            backgroundColor: '#ffffff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            animation: 'fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >
           {/* Header */}
-          <div style={{
-            backgroundColor: '#0a0a0a',
-            color: '#ffffff',
-            padding: '16px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid rgba(255,255,255,0.08)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '50%',
-                backgroundColor: '#1f2937',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '1.5px solid #10b981'
-              }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
-                  <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
-                  <path d="M12 12 2.1 12.5"></path>
-                  <path d="m4.93 4.93 4.24 4.24"></path>
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  I Care Assistant
-                  <span style={{
-                    width: '7px',
-                    height: '7px',
-                    borderRadius: '50%',
-                    backgroundColor: '#10b981',
-                    display: 'inline-block'
-                  }}></span>
-                </div>
-                <div style={{ fontSize: '12px', color: '#9ca3af' }}>Online • Kohinoor City</div>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#9ca3af',
-                cursor: 'pointer',
-                padding: '6px',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-              onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-
-          {/* Quick Suggestion Chips */}
-          <div style={{
-            padding: '10px 14px',
-            backgroundColor: '#f9fafb',
-            borderBottom: '1px solid #f3f4f6',
-            display: 'flex',
-            gap: '8px',
-            overflowX: 'auto',
-            whiteSpace: 'nowrap'
-          }}>
-            {quickPrompts.map((p, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSend(p)}
+          <div
+            style={{
+              padding: '16px 20px',
+              backgroundColor: '#0a0a0a',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid rgba(255,255,255,0.1)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
                 style={{
-                  background: '#ffffff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '9999px',
-                  padding: '5px 12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: '#374151',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#0a0a0a';
-                  e.currentTarget.style.color = '#0a0a0a';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#e5e7eb';
-                  e.currentTarget.style.color = '#374151';
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: '#1f2937',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px'
                 }}
               >
-                {p}
+                🛍️
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '15px' }}>I Care Support</div>
+                <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+                  Voice & AI Active
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => setIsMuted(!isMuted)}
+                title={isMuted ? "Unmute Voice Replies" : "Mute Voice Replies"}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: isMuted ? '#9ca3af' : '#10b981',
+                  cursor: 'pointer',
+                  fontSize: '17px',
+                  padding: '4px'
+                }}
+              >
+                {isMuted ? '🔇' : '🔊'}
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: '#9ca3af',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  lineHeight: 1
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Prompts Bar */}
+          <div
+            style={{
+              padding: '8px 12px',
+              backgroundColor: '#f9fafb',
+              borderBottom: '1px solid #f3f4f6',
+              display: 'flex',
+              gap: '6px',
+              overflowX: 'auto',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {quickPrompts.map((prompt, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSend(prompt)}
+                disabled={loading}
+                style={{
+                  fontSize: '12px',
+                  padding: '6px 12px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '9999px',
+                  cursor: 'pointer',
+                  color: '#374151',
+                  flexShrink: 0
+                }}
+              >
+                {prompt}
               </button>
             ))}
           </div>
 
-          {/* Messages Container */}
-          <div style={{
-            flex: 1,
-            padding: '16px',
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            backgroundColor: '#ffffff'
-          }}>
-            {messages.map((m, idx) => {
-              const isUser = m.role === 'user';
+          {/* Messages Area */}
+          <div
+            style={{
+              flex: 1,
+              padding: '16px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              backgroundColor: '#fafafa'
+            }}
+          >
+            {messages.map((msg, idx) => {
+              const isAssistant = msg.role === 'assistant';
               return (
                 <div
                   key={idx}
                   style={{
                     display: 'flex',
-                    justifyContent: isUser ? 'flex-end' : 'flex-start'
+                    justifyContent: isAssistant ? 'flex-start' : 'flex-end'
                   }}
                 >
-                  <div style={{
-                    maxWidth: '82%',
-                    padding: '10px 14px',
-                    borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    backgroundColor: isUser ? '#0a0a0a' : '#f3f4f6',
-                    color: isUser ? '#ffffff' : '#111827',
-                    fontSize: '13.5px',
-                    lineHeight: '1.45',
-                    boxShadow: isUser ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
-                    whiteSpace: 'pre-wrap'
-                  }}>
-                    {m.content}
+                  <div
+                    style={{
+                      maxWidth: '82%',
+                      padding: '10px 14px',
+                      borderRadius: isAssistant ? '16px 16px 16px 4px' : '16px 16px 4px 16px',
+                      backgroundColor: isAssistant ? '#ffffff' : '#0a0a0a',
+                      color: isAssistant ? '#111827' : '#ffffff',
+                      fontSize: '13.5px',
+                      lineHeight: '1.45',
+                      boxShadow: isAssistant ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                      border: isAssistant ? '1px solid #e5e7eb' : 'none',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-line'
+                    }}
+                  >
+                    {msg.content}
+                    {isAssistant && msg.audio && (
+                      <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #f3f4f6' }}>
+                        <button
+                          onClick={() => playVoice(msg.audio)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            background: '#f3f4f6',
+                            border: 'none',
+                            borderRadius: '12px',
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            color: '#374151',
+                            fontWeight: 500
+                          }}
+                        >
+                          ▶ Replay Audio
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -298,22 +410,63 @@ export default function CustomerChatWidget() {
 
             {loading && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div style={{
-                  padding: '10px 16px',
-                  borderRadius: '16px 16px 16px 4px',
-                  backgroundColor: '#f3f4f6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}>
-                  <span style={{ width: '6px', height: '6px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite' }} />
-                  <span style={{ width: '6px', height: '6px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite 0.2s' }} />
+                <div
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '16px 16px 16px 4px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span style={{ width: '6px', height: '6px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite 0.1s' }} />
+                  <span style={{ width: '6px', height: '6px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite 0.25s' }} />
                   <span style={{ width: '6px', height: '6px', backgroundColor: '#9ca3af', borderRadius: '50%', animation: 'bounce 1s infinite 0.4s' }} />
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Recording Status Banner */}
+          {isRecording && (
+            <div
+              style={{
+                backgroundColor: '#fee2e2',
+                borderTop: '1px solid #fecaca',
+                padding: '8px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                color: '#991b1b',
+                fontSize: '13px',
+                fontWeight: 600
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ width: '10px', height: '10px', backgroundColor: '#dc2626', borderRadius: '50%', animation: 'pulse 1s infinite' }} />
+                <span>Listening... ({recordingSeconds}s)</span>
+              </div>
+              <button
+                type="button"
+                onClick={stopRecording}
+                style={{
+                  backgroundColor: '#dc2626',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '9999px',
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Send Voice ➔
+              </button>
+            </div>
+          )}
 
           {/* Input Box */}
           <form
@@ -325,16 +478,17 @@ export default function CustomerChatWidget() {
               padding: '12px 16px',
               borderTop: '1px solid #f3f4f6',
               display: 'flex',
+              alignItems: 'center',
               gap: '8px',
               backgroundColor: '#ffffff'
             }}
           >
             <input
               type="text"
-              placeholder="Ask about gadgets, cables, prices..."
+              placeholder={isRecording ? "Listening to your voice..." : "Ask about gadgets, cables, prices..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              disabled={loading}
+              disabled={loading || isRecording}
               style={{
                 flex: 1,
                 border: '1px solid #e5e7eb',
@@ -342,34 +496,55 @@ export default function CustomerChatWidget() {
                 padding: '10px 14px',
                 fontSize: '13.5px',
                 outline: 'none',
-                transition: 'border-color 0.2s ease',
-                backgroundColor: '#f9fafb'
+                backgroundColor: isRecording ? '#f3f4f6' : '#f9fafb'
               }}
-              onFocus={(e) => e.target.style.borderColor = '#0a0a0a'}
-              onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
             />
+
+            {/* Voice Mic Button */}
+            <button
+              type="button"
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={loading}
+              title={isRecording ? "Click to finish and send voice" : "Hold or click to speak"}
+              style={{
+                backgroundColor: isRecording ? '#dc2626' : '#f3f4f6',
+                color: isRecording ? '#ffffff' : '#374151',
+                border: isRecording ? 'none' : '1px solid #e5e7eb',
+                borderRadius: '12px',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                flexShrink: 0
+              }}
+            >
+              🎙️
+            </button>
+
+            {/* Send Text Button */}
             <button
               type="submit"
               disabled={loading || !input.trim()}
               style={{
-                backgroundColor: '#0a0a0a',
-                color: '#ffffff',
+                backgroundColor: input.trim() && !loading ? '#0a0a0a' : '#e5e7eb',
+                color: input.trim() && !loading ? '#ffffff' : '#9ca3af',
                 border: 'none',
                 borderRadius: '12px',
-                width: '42px',
-                height: '42px',
+                width: '40px',
+                height: '40px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
-                opacity: loading || !input.trim() ? 0.4 : 1,
-                transition: 'all 0.2s ease'
+                fontSize: '16px',
+                cursor: input.trim() && !loading ? 'pointer' : 'default',
+                flexShrink: 0
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
+              ➔
             </button>
           </form>
         </div>

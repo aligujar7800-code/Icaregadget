@@ -993,19 +993,19 @@ app.post('/api/auth/register', async (req, res) => {
 // 1. Customer Chat (Website Widget)
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, history = [], role = 'customer', businessId = process.env.BUSINESS_ID || 'icare', senderName } = req.body;
+    const { message, audio, history = [], role = 'customer', businessId = process.env.BUSINESS_ID || 'icare', senderName } = req.body;
 
-    if (!message || typeof message !== 'string' || !message.trim()) {
-      return res.status(400).json({ error: 'Message is required' });
+    if ((!message || !message.trim()) && !audio) {
+      return res.status(400).json({ error: 'Message or audio is required' });
     }
 
     const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/website-chat';
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
 
     try {
-      const n8nResponse = await fetch(n8nWebhookUrl, {
+      let n8nResponse = await fetch(n8nWebhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1015,12 +1015,35 @@ app.post('/api/chat', async (req, res) => {
           channel: 'website',
           businessId,
           role: 'customer',
-          message: message.trim(),
+          message: (message || '').trim(),
+          audio: audio || null,
           senderName: senderName || 'Website Customer',
           history
         }),
         signal: controller.signal
       });
+
+      // If production webhook returns 404, fallback to n8n test webhook in development
+      if (n8nResponse.status === 404 && n8nWebhookUrl.includes('/webhook/')) {
+        const testUrl = n8nWebhookUrl.replace('/webhook/', '/webhook-test/');
+        try {
+          const testRes = await fetch(testUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-source': 'icare-website' },
+            body: JSON.stringify({
+              channel: 'website',
+              businessId,
+              role: 'customer',
+              message: (message || '').trim(),
+              audio: audio || null,
+              senderName: senderName || 'Website Customer',
+              history
+            }),
+            signal: controller.signal
+          });
+          if (testRes.ok) n8nResponse = testRes;
+        } catch (_) {}
+      }
 
       clearTimeout(timeout);
 
@@ -1030,8 +1053,11 @@ app.post('/api/chat', async (req, res) => {
         return res.json({ 
           success: true, 
           reply: replyText,
+          audio: data.audio || null,
           business: data.business || 'I Care Gadget'
         });
+      } else {
+        console.warn('n8n webhook responded with status ' + n8nResponse.status);
       }
     } catch (fetchErr) {
       clearTimeout(timeout);
@@ -1039,7 +1065,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // Smart Local Fallback using live icare_db
-    const query = message.toLowerCase();
+    const query = (message || '').toLowerCase();
     if (query.includes('hour') || query.includes('time') || query.includes('open') || query.includes('location') || query.includes('address')) {
       const [storeRows] = await pool.query('SELECT address, hours, phone FROM store_details LIMIT 1');
       const store = storeRows[0] || { address: 'Kohinoor City', hours: '10 AM - 10 PM', phone: '+92 300 1234567' };
@@ -1079,9 +1105,9 @@ app.post('/api/chat', async (req, res) => {
 // 2. Admin AI Chat (Data Handler & Business Analytics)
 app.post('/api/chat/admin', async (req, res) => {
   try {
-    const { message, history = [] } = req.body;
-    if (!message || !message.trim()) {
-      return res.status(400).json({ error: 'Message is required' });
+    const { message, audio, history = [] } = req.body;
+    if ((!message || !message.trim()) && !audio) {
+      return res.status(400).json({ error: 'Message or audio is required' });
     }
 
     // Query live metrics from icare_db
@@ -1110,27 +1136,55 @@ app.post('/api/chat/admin', async (req, res) => {
     const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/website-chat';
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
+      const timeout = setTimeout(() => controller.abort(), 20000);
 
-      const n8nRes = await fetch(n8nWebhookUrl, {
+      let n8nRes = await fetch(n8nWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           channel: 'website',
           businessId: process.env.BUSINESS_ID || 'icare',
           role: 'admin',
-          message: `${message.trim()}\n\n[Live Store Data: ${JSON.stringify(liveStats)}]`,
+          message: `${(message || '').trim()}\n\n[Live Store Data: ${JSON.stringify(liveStats)}]`,
+          audio: audio || null,
           senderName: 'Store Admin',
           history
         }),
         signal: controller.signal
       });
 
+      if (n8nRes.status === 404 && n8nWebhookUrl.includes('/webhook/')) {
+        const testUrl = n8nWebhookUrl.replace('/webhook/', '/webhook-test/');
+        try {
+          const testRes = await fetch(testUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              channel: 'website',
+              businessId: process.env.BUSINESS_ID || 'icare',
+              role: 'admin',
+              message: `${(message || '').trim()}\n\n[Live Store Data: ${JSON.stringify(liveStats)}]`,
+              audio: audio || null,
+              senderName: 'Store Admin',
+              history
+            }),
+            signal: controller.signal
+          });
+          if (testRes.ok) n8nRes = testRes;
+        } catch (_) {}
+      }
+
       clearTimeout(timeout);
 
       if (n8nRes.ok) {
         const data = await n8nRes.json();
-        return res.json({ success: true, reply: data.reply || data.message || data.output });
+        return res.json({ 
+          success: true, 
+          reply: data.reply || data.message || data.output,
+          audio: data.audio || null
+        });
+      } else {
+        console.warn('n8n admin webhook responded with status ' + n8nRes.status);
       }
     } catch (n8nErr) {
       console.warn('n8n admin call error:', n8nErr.message);
@@ -1139,7 +1193,7 @@ app.post('/api/chat/admin', async (req, res) => {
     // Direct Analytical response fallback
     const rev = Number(liveStats.orders.totalRevenue || 0).toLocaleString();
     const reply = `**Live Store Analytics:**\n- **Total Revenue:** PKR ${rev}\n- **Orders:** ${liveStats.orders.totalOrders || 0} total (${liveStats.orders.pendingOrders || 0} pending, ${liveStats.orders.deliveredOrders || 0} delivered)\n- **Products in Catalog:** ${liveStats.products.totalProducts || 0} (${liveStats.products.bestSellers || 0} Best Sellers, ${liveStats.products.onSale || 0} on sale)\n\nWhat specific business insights or recommendations would you like?`;
-    return res.json({ success: true, reply });
+    return res.json({ success: true, reply, audio: null });
 
   } catch (err) {
     console.error('Error in /api/chat/admin:', err);
