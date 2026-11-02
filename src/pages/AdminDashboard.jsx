@@ -202,8 +202,8 @@ export default function AdminDashboard() {
   };
 
   const stopAiRecording = () => {
-    if (mediaRecorderRef.current && aiRecording) {
-      mediaRecorderRef.current.stop();
+    if (aiMediaRecorderRef.current && aiRecording) {
+      aiMediaRecorderRef.current.stop();
       setAiRecording(false);
     }
     if (aiRecognitionRef.current) {
