@@ -608,42 +608,13 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // Smart Local Fallback using live icare_db
-    const query = message.toLowerCase().trim();
+    const query = message.toLowerCase();
     if (query.includes('hour') || query.includes('time') || query.includes('open') || query.includes('location') || query.includes('address')) {
       const [storeRows] = await pool.query('SELECT address, hours, phone FROM store_details LIMIT 1');
       const store = storeRows[0] || { address: 'Kohinoor City', hours: '10 AM - 10 PM', phone: '+92 300 1234567' };
       return res.json({
         success: true,
         reply: `We are located at ${store.address} and open daily from ${store.hours}. Delivery is also available across Pakistan! What item are you looking for today? 😊`,
-        business: 'I Care Gadget'
-      });
-    }
-
-    // Check if user is searching for a specific product keyword
-    const searchWords = query.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 2);
-    let matchedProducts = [];
-    if (searchWords.length > 0) {
-      const conditions = searchWords.map(() => '(name LIKE ? OR category LIKE ? OR subCategory LIKE ?)').join(' OR ');
-      const params = searchWords.flatMap(w => [`%${w}%`, `%${w}%`, `%${w}%`]);
-      const [matched] = await pool.query(`SELECT name, price FROM products WHERE ${conditions} LIMIT 2`, params);
-      matchedProducts = matched;
-    }
-
-    if (matchedProducts.length > 0) {
-      const items = matchedProducts.map(p => `${p.name} (PKR ${p.price})`).join(' and ');
-      return res.json({
-        success: true,
-        reply: `Yes, we have ${items} available! Would you like to check out details or place an order?`,
-        business: 'I Care Gadget'
-      });
-    }
-
-    // If they asked for a specific gadget word but it's not in stock
-    const isSpecificItemQuery = searchWords.some(w => ['airpod', 'airpords', 'earbud', 'charger', 'watch', 'phone', 'laptop', 'cable', 'cover', 'case', 'glass', 'battery'].some(k => w.includes(k) || k.includes(w)));
-    if (isSpecificItemQuery) {
-      return res.json({
-        success: true,
-        reply: `Sorry, we don't currently have that item in stock. We do have authentic chargers, power banks, and AirPods. Is there another gadget or accessory you're looking for?`,
         business: 'I Care Gadget'
       });
     }
