@@ -66,8 +66,27 @@ export default function AdminDashboard() {
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiRecording, setAiRecording] = useState(false);
-  const [aiMuted, setAiMuted] = useState(false);
+  const [aiMuted, setAiMuted] = useState(() => {
+    try {
+      return localStorage.getItem('icare_admin_ai_muted') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+
+  const toggleAiMute = () => {
+    setAiMuted(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('icare_admin_ai_muted', String(next));
+      } catch {}
+      if (next) {
+        stopAiVoice();
+      }
+      return next;
+    });
+  };
   const [aiLiveTranscript, setAiLiveTranscript] = useState('');
   const aiRecognitionRef = useRef(null);
   const aiMediaRecorderRef = useRef(null);
@@ -1500,24 +1519,71 @@ export default function AdminDashboard() {
                   <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Executive Business Co-Pilot</span>
                   <span style={{ fontSize: '12px', color: '#6b7280' }}>• icare_db live link</span>
                 </div>
-                <button
-                  onClick={() => setAiMessages([{
-                    role: 'assistant',
-                    content: "History cleared. What can I calculate or suggest for you?"
-                  }])}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#9ca3af',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    fontWeight: 500
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                  onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
-                >
-                  Clear History
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {isAiSpeaking && (
+                    <button
+                      type="button"
+                      onClick={stopAiVoice}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        backgroundColor: '#fee2e2',
+                        color: '#b91c1c',
+                        border: '1px solid #fca5a5',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ⏹️ Stop Voice
+                    </button>
+                  )}
+
+                  {/* Voice Mute / Unmute Toggle */}
+                  <button
+                    type="button"
+                    onClick={toggleAiMute}
+                    title={aiMuted ? "Unmute Voice Responses" : "Mute Voice Responses"}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: aiMuted ? '#fef2f2' : '#f0fdf4',
+                      border: `1px solid ${aiMuted ? '#fecaca' : '#bbf7d0'}`,
+                      color: aiMuted ? '#dc2626' : '#15803d',
+                      borderRadius: '6px',
+                      padding: '3px 10px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {aiMuted ? '🔇 Voice Muted' : '🔊 Voice On'}
+                  </button>
+
+                  <button
+                    onClick={() => setAiMessages([{
+                      role: 'assistant',
+                      content: "History cleared. What can I calculate or suggest for you?"
+                    }])}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#9ca3af',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      fontWeight: 500
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+                  >
+                    Clear History
+                  </button>
+                </div>
               </div>
 
               <div style={{
@@ -1546,6 +1612,42 @@ export default function AdminDashboard() {
                         whiteSpace: 'pre-wrap'
                       }}>
                         {m.content}
+                        {!isUser && m.audio && (
+                          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isAiSpeaking && aiCurrentAudioRef.current) {
+                                  stopAiVoice();
+                                } else {
+                                  // Direct replay
+                                  stopAiVoice();
+                                  const sound = new Audio(m.audio);
+                                  aiCurrentAudioRef.current = sound;
+                                  sound.onplay = () => setIsAiSpeaking(true);
+                                  sound.onended = () => { setIsAiSpeaking(false); aiCurrentAudioRef.current = null; };
+                                  sound.onerror = () => { setIsAiSpeaking(false); aiCurrentAudioRef.current = null; };
+                                  sound.play().catch(e => console.warn('Play error:', e));
+                                }
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: '#f3f4f6',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '6px',
+                                padding: '3px 8px',
+                                fontSize: '11px',
+                                color: '#4b5563',
+                                cursor: 'pointer',
+                                fontWeight: 500
+                              }}
+                            >
+                              {isAiSpeaking ? '⏹️ Stop' : '🔊 Replay Voice'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -1635,6 +1737,30 @@ export default function AdminDashboard() {
                   onFocus={e => e.target.style.borderColor = '#111827'}
                   onBlur={e => e.target.style.borderColor = '#d1d5db'}
                 />
+
+                {/* Voice Mute Toggle Button */}
+                <button
+                  type="button"
+                  onClick={toggleAiMute}
+                  title={aiMuted ? "Voice is Muted (Click to Unmute)" : "Voice is Active (Click to Mute)"}
+                  style={{
+                    backgroundColor: aiMuted ? '#fef2f2' : '#f3f4f6',
+                    color: aiMuted ? '#dc2626' : '#4b5563',
+                    border: `1px solid ${aiMuted ? '#fca5a5' : '#d1d5db'}`,
+                    borderRadius: '8px',
+                    height: '40px',
+                    padding: '0 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {aiMuted ? '🔇 Muted' : '🔊 Voice'}
+                </button>
 
                 {/* Voice Mic Button */}
                 <button
