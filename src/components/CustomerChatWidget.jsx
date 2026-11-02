@@ -404,6 +404,32 @@ export default function CustomerChatWidget() {
                       </div>
                     )}
                   </div>
+                  {/* Speaker icon for assistant replies */}
+                  {!isUser && (
+                    <button
+                      onClick={() => m.audio ? playVoice(m.audio) : speakText(m.content)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#9ca3af',
+                        cursor: 'pointer',
+                        padding: '4px 6px',
+                        fontSize: '11px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        marginTop: '2px'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.color = '#10b981'}
+                      onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                      </svg>
+                      Listen
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -475,7 +501,7 @@ export default function CustomerChatWidget() {
               handleSend();
             }}
             style={{
-              padding: '12px 16px',
+              padding: '12px 14px',
               borderTop: '1px solid #f3f4f6',
               display: 'flex',
               alignItems: 'center',
@@ -528,7 +554,7 @@ export default function CustomerChatWidget() {
             {/* Send Text Button */}
             <button
               type="submit"
-              disabled={loading || !input.trim()}
+              disabled={loading || !input.trim() || isRecording}
               style={{
                 backgroundColor: input.trim() && !loading ? '#0a0a0a' : '#e5e7eb',
                 color: input.trim() && !loading ? '#ffffff' : '#9ca3af',

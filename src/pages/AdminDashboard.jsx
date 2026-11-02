@@ -1497,16 +1497,17 @@ export default function AdminDashboard() {
                   padding: '14px 18px',
                   borderTop: '1px solid #f3f4f6',
                   display: 'flex',
+                  alignItems: 'center',
                   gap: '10px',
                   backgroundColor: '#ffffff'
                 }}
               >
                 <input
                   type="text"
-                  placeholder="Ask anything: store revenue, best sellers, pricing, campaigns, or general business ideas..."
+                  placeholder={aiRecording ? "Recording voice command..." : "Ask or speak: store revenue, best sellers, pricing, campaigns..."}
                   value={aiInput}
                   onChange={(e) => setAiInput(e.target.value)}
-                  disabled={aiLoading}
+                  disabled={aiLoading || aiRecording}
                   style={{
                     flex: 1,
                     padding: '10px 14px',
@@ -1514,24 +1515,56 @@ export default function AdminDashboard() {
                     border: '1px solid #d1d5db',
                     fontSize: '13.5px',
                     outline: 'none',
-                    backgroundColor: '#f9fafb'
+                    backgroundColor: aiRecording ? '#fef2f2' : '#f9fafb'
                   }}
                   onFocus={e => e.target.style.borderColor = '#111827'}
                   onBlur={e => e.target.style.borderColor = '#d1d5db'}
                 />
+
+                {/* Voice Mic Button */}
+                <button
+                  type="button"
+                  onClick={aiRecording ? stopAiRecording : startAiRecording}
+                  disabled={aiLoading}
+                  title={aiRecording ? "Stop & Send Voice Command" : "Speak Voice Command"}
+                  style={{
+                    backgroundColor: aiRecording ? '#ef4444' : '#f3f4f6',
+                    color: aiRecording ? '#ffffff' : '#374151',
+                    padding: '0 14px',
+                    height: '40px',
+                    borderRadius: '8px',
+                    border: aiRecording ? '1px solid #dc2626' : '1px solid #d1d5db',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: aiLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="22"></line>
+                  </svg>
+                  {aiRecording ? "Stop & Send" : "Voice"}
+                </button>
+
                 <button
                   type="submit"
-                  disabled={aiLoading || !aiInput.trim()}
+                  disabled={aiLoading || !aiInput.trim() || aiRecording}
                   style={{
                     backgroundColor: '#111827',
                     color: 'white',
                     padding: '0 20px',
+                    height: '40px',
                     borderRadius: '8px',
                     border: 'none',
                     fontWeight: 600,
                     fontSize: '13.5px',
-                    cursor: aiLoading || !aiInput.trim() ? 'not-allowed' : 'pointer',
-                    opacity: aiLoading || !aiInput.trim() ? 0.5 : 1
+                    cursor: aiLoading || !aiInput.trim() || aiRecording ? 'not-allowed' : 'pointer',
+                    opacity: aiLoading || !aiInput.trim() || aiRecording ? 0.5 : 1
                   }}
                 >
                   Send
