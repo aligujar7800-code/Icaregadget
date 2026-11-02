@@ -381,12 +381,13 @@ export default function CustomerChatWidget() {
                     }}
                   >
                     {msg.content}
-                    {isAssistant && msg.audio && (
+                    {isAssistant && (
                       <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #f3f4f6' }}>
                         <button
-                          onClick={() => playVoice(msg.audio)}
+                          type="button"
+                          onClick={() => msg.audio ? playVoice(msg.audio) : speakTextFallback(msg.content)}
                           style={{
-                            display: 'flex',
+                            display: 'inline-flex',
                             alignItems: 'center',
                             gap: '5px',
                             background: '#f3f4f6',
@@ -399,37 +400,11 @@ export default function CustomerChatWidget() {
                             fontWeight: 500
                           }}
                         >
-                          ▶ Replay Audio
+                          {msg.audio ? '▶ Replay Voice' : '🔊 Listen'}
                         </button>
                       </div>
                     )}
                   </div>
-                  {/* Speaker icon for assistant replies */}
-                  {!isUser && (
-                    <button
-                      onClick={() => m.audio ? playVoice(m.audio) : speakText(m.content)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#9ca3af',
-                        cursor: 'pointer',
-                        padding: '4px 6px',
-                        fontSize: '11px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        marginTop: '2px'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.color = '#10b981'}
-                      onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                      </svg>
-                      Listen
-                    </button>
-                  )}
                 </div>
               );
             })}
