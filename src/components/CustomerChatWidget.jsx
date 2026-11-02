@@ -117,8 +117,6 @@ export default function CustomerChatWidget() {
 
       if (data.audio) {
         playVoice(data.audio);
-      } else {
-        speakTextFallback(reply);
       }
     } catch (err) {
       const finalUserText = text || "🎙️ [Voice Inquiry]";
@@ -426,11 +424,11 @@ export default function CustomerChatWidget() {
                     }}
                   >
                     {msg.content}
-                    {isAssistant && (
+                    {isAssistant && msg.audio && (
                       <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #f3f4f6' }}>
                         <button
                           type="button"
-                          onClick={() => msg.audio ? playVoice(msg.audio) : speakTextFallback(msg.content)}
+                          onClick={() => playVoice(msg.audio)}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',

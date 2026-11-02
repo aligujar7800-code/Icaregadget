@@ -182,8 +182,6 @@ export default function AdminDashboard() {
 
       if (data.audio) {
         playAiVoice(data.audio);
-      } else {
-        speakAiText(reply);
       }
     } catch (err) {
       const finalUserText = text || "🎙️ [Voice Command]";
