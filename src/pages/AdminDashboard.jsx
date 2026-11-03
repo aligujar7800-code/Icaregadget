@@ -751,91 +751,36 @@ export default function AdminDashboard() {
 
   return (
     <div className="admin-layout" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', backgroundColor: '#f8fafc' }}>
-      {/* Sleek Admin Topbar (52px) */}
+      {/* Sleek Admin Topbar (52px, Pure Black) */}
       <header style={{
         height: '52px',
-        backgroundColor: '#111827',
+        backgroundColor: '#000000',
         color: '#ffffff',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 16px',
-        borderBottom: '1px solid #1f2937',
+        borderBottom: '1px solid #1f1f1f',
         flexShrink: 0,
         zIndex: 50,
         userSelect: 'none'
       }}>
-        {/* Left: Sidebar Toggle + Brand + Breadcrumb */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-            style={{
-              background: '#1f2937',
-              border: '1px solid #374151',
-              color: '#f9fafb',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              fontWeight: 500,
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#374151'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#1f2937'}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-            <span>{sidebarOpen ? 'Collapse' : 'Menu'}</span>
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 800, letterSpacing: '0.5px', color: '#f59e0b', fontSize: '13px' }}>I CARE</span>
-            <span style={{ color: '#4b5563' }}>/</span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#e5e7eb' }}>
-              {activeTab === 'orders' && 'Customer Orders'}
-              {activeTab === 'finances' && 'Finances & P&L'}
-              {activeTab === 'products' && 'Products'}
-              {activeTab === 'categories' && 'Categories'}
-              {activeTab === 'store' && 'Store Settings'}
-              {activeTab === 'security' && 'Security & Password'}
-            </span>
-          </div>
+        {/* Left: Brand + Breadcrumb (Collapse button removed) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontWeight: 800, letterSpacing: '0.5px', color: '#f59e0b', fontSize: '13px' }}>I CARE</span>
+          <span style={{ color: '#4b5563' }}>/</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#e5e7eb' }}>
+            {activeTab === 'orders' && 'Customer Orders'}
+            {activeTab === 'finances' && 'Finances & P&L'}
+            {activeTab === 'products' && 'Products'}
+            {activeTab === 'categories' && 'Categories'}
+            {activeTab === 'store' && 'Store Settings'}
+            {activeTab === 'security' && 'Security & Password'}
+          </span>
         </div>
 
-        {/* Right: Quick actions + AI Advisor + Profile Icon */}
+        {/* Right: Storefront + Profile Icon (AI Advisor button removed) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* AI Advisor Button */}
-          <button
-            type="button"
-            onClick={() => setIsAiChatOpen(prev => !prev)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              backgroundColor: isAiChatOpen ? '#2563eb' : '#1f2937',
-              color: '#ffffff',
-              border: '1px solid #374151',
-              borderRadius: '6px',
-              padding: '6px 12px',
-              fontSize: '12px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'background 0.2s'
-            }}
-            onMouseEnter={e => !isAiChatOpen && (e.currentTarget.style.backgroundColor = '#374151')}
-            onMouseLeave={e => !isAiChatOpen && (e.currentTarget.style.backgroundColor = '#1f2937')}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg> <span>AI Advisor</span>
-          </button>
-
           {/* View Live Storefront */}
           <button
             type="button"
@@ -845,17 +790,17 @@ export default function AdminDashboard() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              backgroundColor: '#1f2937',
+              backgroundColor: '#141414',
               color: '#9ca3af',
-              border: '1px solid #374151',
+              border: '1px solid #2a2a2a',
               borderRadius: '6px',
-              padding: '6px 10px',
+              padding: '6px 12px',
               fontSize: '12px',
               cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#374151'; e.currentTarget.style.color = '#ffffff'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#1f2937'; e.currentTarget.style.color = '#9ca3af'; }}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#222222'; e.currentTarget.style.color = '#ffffff'; }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#141414'; e.currentTarget.style.color = '#9ca3af'; }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -1009,104 +954,164 @@ export default function AdminDashboard() {
             width: sidebarOpen ? '200px' : '56px',
             overflow: 'hidden',
             transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            backgroundColor: '#111827',
+            backgroundColor: '#000000',
             color: 'white',
             display: 'flex',
             flexDirection: 'column',
             flexShrink: 0,
-            borderRight: '1px solid #1f2937',
+            borderRight: '1px solid #1f1f1f',
             whiteSpace: 'nowrap'
           }}
         >
           {/* Header with < or > button */}
           <div style={{
-            height: '42px',
-            borderBottom: '1px solid #1f2937',
+            height: '46px',
+            borderBottom: '1px solid #1f1f1f',
             display: 'flex',
             alignItems: 'center',
             justifyContent: sidebarOpen ? 'space-between' : 'center',
             padding: sidebarOpen ? '0 12px' : '0'
           }}>
-            {sidebarOpen && (
-              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                Navigation
-              </span>
+            {sidebarOpen ? (
+              <>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                  Navigation
+                </span>
+                <button 
+                  type="button" 
+                  onClick={toggleSidebar} 
+                  title="Collapse sidebar (<)"
+                  style={{
+                    width: '26px',
+                    height: '26px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#141414',
+                    border: '1px solid #2a2a2a',
+                    color: '#9ca3af',
+                    cursor: 'pointer',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    fontWeight: 'bold',
+                    lineHeight: 1
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.backgroundColor = '#262626'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.backgroundColor = '#141414'; }}
+                >
+                  &lt;
+                </button>
+              </>
+            ) : (
+              <button 
+                type="button" 
+                onClick={toggleSidebar} 
+                title="Expand sidebar (>)"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#141414',
+                  border: '1px solid #2a2a2a',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  lineHeight: 1
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.backgroundColor = '#262626'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.backgroundColor = '#141414'; }}
+              >
+                &gt;
+              </button>
             )}
-            <button 
-              type="button" 
-              onClick={toggleSidebar} 
-              title={sidebarOpen ? "Collapse sidebar (<)" : "Expand sidebar (>)"}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#9ca3af',
-                cursor: 'pointer',
-                padding: '4px 8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '4px',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                lineHeight: 1
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
-              onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
-            >
-              {sidebarOpen ? '<' : '>'}
-            </button>
           </div>
 
-          <nav style={{ flex: 1, padding: '10px 6px', display: 'flex', flexDirection: 'column', gap: '3px', overflowY: 'auto' }}>
+          <nav style={{ flex: 1, padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '3px', overflowY: 'auto' }}>
             
             <button 
               onClick={() => setActiveTab('orders')} 
               title="Customer Orders"
               style={{
-                ...sidebarBtnStyle(activeTab === 'orders'),
-                padding: sidebarOpen ? '8px 12px' : '8px 0',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
+                height: sidebarOpen ? 'auto' : '38px',
+                margin: sidebarOpen ? '0 6px' : '2px auto',
+                padding: sidebarOpen ? '8px 12px' : '0',
+                borderRadius: '8px',
+                backgroundColor: activeTab === 'orders' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                color: activeTab === 'orders' ? '#ffffff' : '#9ca3af',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: sidebarOpen ? 'space-between' : 'center',
+                transition: 'all 0.15s ease'
               }}
+              onMouseEnter={e => activeTab !== 'orders' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+              onMouseLeave={e => activeTab !== 'orders' && (e.currentTarget.style.backgroundColor = 'transparent')}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: sidebarOpen ? 'space-between' : 'center', width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
-                  {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Customer Orders</span>}
-                </div>
-                {sidebarOpen && orders.length > 0 && <span style={{ backgroundColor: 'var(--orange, #ea580c)', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem' }}>{orders.length}</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
+                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Customer Orders</span>}
               </div>
+              {sidebarOpen && orders.length > 0 && <span style={{ backgroundColor: 'var(--orange, #ea580c)', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: 700 }}>{orders.length}</span>}
             </button>
 
             <button 
               onClick={() => setActiveTab('finances')} 
               title="Finances & P&L"
               style={{
-                ...sidebarBtnStyle(activeTab === 'finances'),
-                padding: sidebarOpen ? '8px 12px' : '8px 0',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
+                height: sidebarOpen ? 'auto' : '38px',
+                margin: sidebarOpen ? '0 6px' : '2px auto',
+                padding: sidebarOpen ? '8px 12px' : '0',
+                borderRadius: '8px',
+                backgroundColor: activeTab === 'finances' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                color: activeTab === 'finances' ? '#ffffff' : '#9ca3af',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: sidebarOpen ? 'space-between' : 'center',
+                transition: 'all 0.15s ease'
               }}
+              onMouseEnter={e => activeTab !== 'finances' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+              onMouseLeave={e => activeTab !== 'finances' && (e.currentTarget.style.backgroundColor = 'transparent')}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: sidebarOpen ? 'space-between' : 'center', width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
-                  {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Finances & P&L</span>}
-                </div>
-                {sidebarOpen && <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: 'bold' }}>P&L</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Finances & P&L</span>}
               </div>
+              {sidebarOpen && <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: 'bold' }}>P&L</span>}
             </button>
 
             <button 
               onClick={() => setActiveTab('products')} 
               title="Products"
               style={{
-                ...sidebarBtnStyle(activeTab === 'products'),
-                padding: sidebarOpen ? '8px 12px' : '8px 0',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
+                height: sidebarOpen ? 'auto' : '38px',
+                margin: sidebarOpen ? '0 6px' : '2px auto',
+                padding: sidebarOpen ? '8px 12px' : '0',
+                borderRadius: '8px',
+                backgroundColor: activeTab === 'products' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                color: activeTab === 'products' ? '#ffffff' : '#9ca3af',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                transition: 'all 0.15s ease'
               }}
+              onMouseEnter={e => activeTab !== 'products' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+              onMouseLeave={e => activeTab !== 'products' && (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Products</span>}
+                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Products</span>}
               </div>
             </button>
 
@@ -1114,14 +1119,26 @@ export default function AdminDashboard() {
               onClick={() => setActiveTab('categories')} 
               title="Categories"
               style={{
-                ...sidebarBtnStyle(activeTab === 'categories'),
-                padding: sidebarOpen ? '8px 12px' : '8px 0',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
+                height: sidebarOpen ? 'auto' : '38px',
+                margin: sidebarOpen ? '0 6px' : '2px auto',
+                padding: sidebarOpen ? '8px 12px' : '0',
+                borderRadius: '8px',
+                backgroundColor: activeTab === 'categories' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                color: activeTab === 'categories' ? '#ffffff' : '#9ca3af',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                transition: 'all 0.15s ease'
               }}
+              onMouseEnter={e => activeTab !== 'categories' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+              onMouseLeave={e => activeTab !== 'categories' && (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h7" /></svg>
-                {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Categories</span>}
+                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Categories</span>}
               </div>
             </button>
 
@@ -1129,14 +1146,26 @@ export default function AdminDashboard() {
               onClick={() => setActiveTab('store')} 
               title="Store Settings"
               style={{
-                ...sidebarBtnStyle(activeTab === 'store'),
-                padding: sidebarOpen ? '8px 12px' : '8px 0',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
+                height: sidebarOpen ? 'auto' : '38px',
+                margin: sidebarOpen ? '0 6px' : '2px auto',
+                padding: sidebarOpen ? '8px 12px' : '0',
+                borderRadius: '8px',
+                backgroundColor: activeTab === 'store' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                color: activeTab === 'store' ? '#ffffff' : '#9ca3af',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                transition: 'all 0.15s ease'
               }}
+              onMouseEnter={e => activeTab !== 'store' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+              onMouseLeave={e => activeTab !== 'store' && (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Store Settings</span>}
+                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Store Settings</span>}
               </div>
             </button>
 
@@ -1144,26 +1173,40 @@ export default function AdminDashboard() {
               onClick={() => setActiveTab('security')} 
               title="Security & Password"
               style={{
-                ...sidebarBtnStyle(activeTab === 'security'),
-                padding: sidebarOpen ? '8px 12px' : '8px 0',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
+                height: sidebarOpen ? 'auto' : '38px',
+                margin: sidebarOpen ? '0 6px' : '2px auto',
+                padding: sidebarOpen ? '8px 12px' : '0',
+                borderRadius: '8px',
+                backgroundColor: activeTab === 'security' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                color: activeTab === 'security' ? '#ffffff' : '#9ca3af',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                transition: 'all 0.15s ease'
               }}
+              onMouseEnter={e => activeTab !== 'security' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+              onMouseLeave={e => activeTab !== 'security' && (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Security & Password</span>}
+                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Security & Password</span>}
               </div>
             </button>
 
           </nav>
-          <div style={{ padding: '10px 6px', borderTop: '1px solid #1f2937' }}>
+
+          <div style={{ padding: '10px 0', borderTop: '1px solid #1f1f1f' }}>
             <button 
               onClick={handleLogout} 
               title="Logout"
               style={{ 
-                width: '100%', 
-                textAlign: sidebarOpen ? 'left' : 'center', 
-                padding: sidebarOpen ? '8px 12px' : '8px 0', 
+                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
+                height: sidebarOpen ? 'auto' : '38px',
+                margin: sidebarOpen ? '0 6px' : '2px auto',
+                padding: sidebarOpen ? '8px 12px' : '0',
                 borderRadius: '6px', 
                 color: '#f87171', 
                 fontWeight: '500', 
@@ -2798,25 +2841,6 @@ export default function AdminDashboard() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {/* Voice Mute Toggle */}
-              <button
-                type="button"
-                onClick={toggleAiMute}
-                title={aiMuted ? "Unmute Voice" : "Mute Voice"}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  color: aiMuted ? '#f87171' : '#4ade80',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                {aiMuted ? 'Muted' : 'Voice'}
-              </button>
-
               {/* Clear History */}
               <button
                 type="button"
