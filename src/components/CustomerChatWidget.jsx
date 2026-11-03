@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useStore } from '../context/StoreContext';
 
 export default function CustomerChatWidget() {
+  const { user } = useStore();
   const location = useLocation();
   if (location.pathname.startsWith('/admin')) {
     return null;
@@ -97,6 +99,9 @@ export default function CustomerChatWidget() {
         body: JSON.stringify({
           businessId: 'icare',
           role: 'customer',
+          userEmail: user?.email || '',
+          userName: user?.name || '',
+          userPhone: user?.phone || '',
           message: text,
           audio: audioBase64,
           history: history

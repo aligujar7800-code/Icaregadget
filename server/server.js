@@ -1278,7 +1278,11 @@ app.post('/api/auth/register', async (req, res) => {
 // 1. Customer Chat (Website Widget)
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, audio, history = [], role = 'customer', businessId = process.env.BUSINESS_ID || 'icare', senderName } = req.body;
+    const { 
+      message, audio, history = [], role = 'customer', 
+      businessId = process.env.BUSINESS_ID || 'icare', 
+      senderName, userEmail, userName, userPhone 
+    } = req.body;
 
     if ((!message || !message.trim()) && !audio) {
       return res.status(400).json({ error: 'Message or audio is required' });
@@ -1288,6 +1292,7 @@ app.post('/api/chat', async (req, res) => {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
+    const effectiveSender = userName || senderName || 'Website Customer';
 
     try {
       let n8nResponse = await fetch(n8nWebhookUrl, {
@@ -1300,9 +1305,12 @@ app.post('/api/chat', async (req, res) => {
           channel: 'website',
           businessId,
           role: 'customer',
+          userEmail: userEmail || '',
+          userName: effectiveSender,
+          userPhone: userPhone || '',
           message: (message || '').trim(),
           audio: audio || null,
-          senderName: senderName || 'Website Customer',
+          senderName: effectiveSender,
           history
         }),
         signal: controller.signal
@@ -1319,9 +1327,12 @@ app.post('/api/chat', async (req, res) => {
               channel: 'website',
               businessId,
               role: 'customer',
+              userEmail: userEmail || '',
+              userName: effectiveSender,
+              userPhone: userPhone || '',
               message: (message || '').trim(),
               audio: audio || null,
-              senderName: senderName || 'Website Customer',
+              senderName: effectiveSender,
               history
             }),
             signal: controller.signal
