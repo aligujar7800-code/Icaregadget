@@ -607,6 +607,24 @@ export const StoreProvider = ({ children }) => {
     });
   };
 
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+        return { success: true };
+      }
+    } catch (err) {
+      console.error('Failed to update order status:', err);
+    }
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    return { success: true };
+  };
+
   return (
     <StoreContext.Provider value={{ 
       user, login, register, loginWithGoogle, logout,
@@ -615,7 +633,7 @@ export const StoreProvider = ({ children }) => {
       storeDetails, updateStoreDetails, 
       categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory,
       products, addProduct, updateProduct, deleteProduct,
-      orders, placeOrder,
+      orders, placeOrder, updateOrderStatus,
       cart, addToCart, removeFromCart, updateQuantity, clearCart,
       isCartOpen, setIsCartOpen,
       isMobileMenuOpen, setIsMobileMenuOpen,

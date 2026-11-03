@@ -5,7 +5,7 @@ import { useStore } from '../context/StoreContext';
 export default function AdminDashboard() {
   const { 
     user, products, addProduct, updateProduct, deleteProduct, 
-    storeDetails, updateStoreDetails, logout, orders, 
+    storeDetails, updateStoreDetails, logout, orders, updateOrderStatus, 
     categories: contextCategories, addCategory, deleteCategory, 
     addSubCategory, deleteSubCategory,
     requestPasswordOtp, changeAdminPassword 
@@ -88,6 +88,14 @@ export default function AdminDashboard() {
     });
   };
   const [aiLiveTranscript, setAiLiveTranscript] = useState('');
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const aiMessagesEndRef = useRef(null);
+
+  useEffect(() => {
+    if (isAiChatOpen) {
+      aiMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [isAiChatOpen, aiMessages]);
   const aiRecognitionRef = useRef(null);
   const aiMediaRecorderRef = useRef(null);
   const aiAudioChunksRef = useRef([]);
@@ -636,15 +644,7 @@ export default function AdminDashboard() {
               Security & Password
             </div>
           </button>
-          <button onClick={() => setActiveTab('ai_assistant')} style={sidebarBtnStyle(activeTab === 'ai_assistant')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                AI Assistant
-              </div>
-              <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 6px', borderRadius: '99px', fontSize: '0.7rem', fontWeight: 'bold' }}>AI</span>
-            </div>
-          </button>
+
         </nav>
         <div style={{ padding: '24px 12px' }}>
           <button onClick={handleLogout} style={{ width: '100%', textAlign: 'left', padding: '12px 16px', borderRadius: '8px', color: '#f87171', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', transition: 'background 0.2s', border: 'none', cursor: 'pointer', backgroundColor: 'transparent' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
@@ -664,7 +664,7 @@ export default function AdminDashboard() {
               {activeTab === 'store' && 'Store Settings'}
               {activeTab === 'orders' && 'Customer Orders'}
               {activeTab === 'security' && 'Security & Password Settings'}
-              {activeTab === 'ai_assistant' && 'AI Business Advisor & Data Handler'}
+              
             </h1>
             <p style={{ color: '#6b7280', marginTop: '4px' }}>Welcome back, Admin.</p>
           </div>
@@ -686,7 +686,7 @@ export default function AdminDashboard() {
                       <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Product</th>
                       <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Total</th>
                       <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Date</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Status</th>
+                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Order Status (Click to Change)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -698,7 +698,41 @@ export default function AdminDashboard() {
                         <td style={{ padding: '16px', fontWeight: '600', color: '#111827' }}>{order.price}</td>
                         <td style={{ padding: '16px', color: '#6b7280', fontSize: '0.875rem' }}>{order.date}</td>
                         <td style={{ padding: '16px' }}>
-                          <span style={{ padding: '4px 8px', borderRadius: '9999px', backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.75rem', fontWeight: '600' }}>{order.status}</span>
+                          <select
+                            value={order.status || 'Pending'}
+                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: '20px',
+                              fontSize: '0.78rem',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              outline: 'none',
+                              border: '1px solid ' + (
+                                order.status === 'Delivered' ? '#bbf7d0' :
+                                order.status === 'Processing' ? '#bae6fd' :
+                                order.status === 'Shipped' ? '#e9d5ff' :
+                                order.status === 'Cancelled' ? '#fca5a5' : '#fde68a'
+                              ),
+                              backgroundColor: 
+                                order.status === 'Delivered' ? '#dcfce7' :
+                                order.status === 'Processing' ? '#e0f2fe' :
+                                order.status === 'Shipped' ? '#f3e8ff' :
+                                order.status === 'Cancelled' ? '#fee2e2' : '#fef3c7',
+                              color: 
+                                order.status === 'Delivered' ? '#15803d' :
+                                order.status === 'Processing' ? '#0369a1' :
+                                order.status === 'Shipped' ? '#7e22ce' :
+                                order.status === 'Cancelled' ? '#b91c1c' : '#b45309',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                            }}
+                          >
+                            <option value="Pending">🟡 Pending</option>
+                            <option value="Processing">🔵 Processing</option>
+                            <option value="Shipped">🟣 Shipped</option>
+                            <option value="Delivered">🟢 Delivered</option>
+                            <option value="Cancelled">🔴 Cancelled</option>
+                          </select>
                         </td>
                       </tr>
                     ))}
@@ -1407,412 +1441,408 @@ export default function AdminDashboard() {
 
           </div>
         )}
-        {/* ==================== AI ASSISTANT TAB ==================== */}
-        {activeTab === 'ai_assistant' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Quick Action Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-              <button
-                onClick={() => handleAiSend("Summarize today's revenue, total orders, and pending delivery status.")}
-                style={{
-                  padding: '16px',
-                  borderRadius: '12px',
-                  backgroundColor: 'white',
-                  border: '1px solid #e5e7eb',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#10b981'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
-              >
-                <div style={{ fontSize: '20px', marginBottom: '6px' }}>📊</div>
-                <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Revenue & Orders</div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Live sales and pending shipments</div>
-              </button>
+      </main>
 
-              <button
-                onClick={() => handleAiSend("Which products are marked as Best Sellers and what items are currently on sale?")}
-                style={{
-                  padding: '16px',
-                  borderRadius: '12px',
-                  backgroundColor: 'white',
-                  border: '1px solid #e5e7eb',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#10b981'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
-              >
-                <div style={{ fontSize: '20px', marginBottom: '6px' }}>⚡</div>
-                <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Best Sellers & Deals</div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Review featured gadgets & discounts</div>
-              </button>
+      {/* ==================== FLOATING ADMIN AI CHAT SYSTEM ==================== */}
+      {!isAiChatOpen && (
+        <button
+          type="button"
+          onClick={() => setIsAiChatOpen(true)}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            backgroundColor: '#111827',
+            color: '#ffffff',
+            border: '1px solid #374151',
+            borderRadius: '9999px',
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+            cursor: 'pointer',
+            zIndex: 9999,
+            fontWeight: 600,
+            fontSize: '13.5px',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+        >
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+          <span>AI Business Co-Pilot</span>
+          <span style={{ backgroundColor: '#10b981', color: '#ffffff', padding: '1px 6px', borderRadius: '99px', fontSize: '10px', fontWeight: 'bold' }}>LIVE</span>
+        </button>
+      )}
 
-              <button
-                onClick={() => handleAiSend("Suggest 3 promotional marketing campaigns for I Care Gadget this month to boost tech accessories sales.")}
-                style={{
-                  padding: '16px',
-                  borderRadius: '12px',
-                  backgroundColor: 'white',
-                  border: '1px solid #e5e7eb',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#10b981'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
-              >
-                <div style={{ fontSize: '20px', marginBottom: '6px' }}>💡</div>
-                <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Growth & Campaigns</div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Promotional strategies & bundle offers</div>
-              </button>
-
-              <button
-                onClick={() => handleAiSend("What are the most popular trending mobile accessories in Pakistan right now?")}
-                style={{
-                  padding: '16px',
-                  borderRadius: '12px',
-                  backgroundColor: 'white',
-                  border: '1px solid #e5e7eb',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#10b981'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
-              >
-                <div style={{ fontSize: '20px', marginBottom: '6px' }}>🌐</div>
-                <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Market Trends & Strategy</div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Ask any business or general question</div>
-              </button>
+      {isAiChatOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            width: '420px',
+            height: '620px',
+            maxHeight: 'calc(100vh - 48px)',
+            maxWidth: 'calc(100vw - 32px)',
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+            zIndex: 9999,
+            overflow: 'hidden'
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              padding: '14px 18px',
+              backgroundColor: '#111827',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderTopLeftRadius: '16px',
+              borderTopRightRadius: '16px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }}></div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '13.5px', color: '#ffffff' }}>AI Business Co-Pilot</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>Live metrics & catalog access</div>
+              </div>
             </div>
 
-            {/* Conversational Console */}
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '16px',
-              boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb',
-              display: 'flex',
-              flexDirection: 'column',
-              height: '580px',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                padding: '14px 24px',
-                borderBottom: '1px solid #f3f4f6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                backgroundColor: '#fafafa'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: '#10b981' }}></div>
-                  <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Executive Business Co-Pilot</span>
-                  <span style={{ fontSize: '12px', color: '#6b7280' }}>• icare_db live link</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {isAiSpeaking && (
-                    <button
-                      type="button"
-                      onClick={stopAiVoice}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        backgroundColor: '#fee2e2',
-                        color: '#b91c1c',
-                        border: '1px solid #fca5a5',
-                        borderRadius: '6px',
-                        padding: '3px 8px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ⏹️ Stop Voice
-                    </button>
-                  )}
-
-                  {/* Voice Mute / Unmute Toggle */}
-                  <button
-                    type="button"
-                    onClick={toggleAiMute}
-                    title={aiMuted ? "Unmute Voice Responses" : "Mute Voice Responses"}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      background: aiMuted ? '#fef2f2' : '#f0fdf4',
-                      border: `1px solid ${aiMuted ? '#fecaca' : '#bbf7d0'}`,
-                      color: aiMuted ? '#dc2626' : '#15803d',
-                      borderRadius: '6px',
-                      padding: '3px 10px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    {aiMuted ? '🔇 Voice Muted' : '🔊 Voice On'}
-                  </button>
-
-                  <button
-                    onClick={() => setAiMessages([{
-                      role: 'assistant',
-                      content: "History cleared. What can I calculate or suggest for you?"
-                    }])}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#9ca3af',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      fontWeight: 500
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                    onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
-                  >
-                    Clear History
-                  </button>
-                </div>
-              </div>
-
-              <div style={{
-                flex: 1,
-                padding: '20px',
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-                backgroundColor: '#f9fafb'
-              }}>
-                {aiMessages.map((m, idx) => {
-                  const isUser = m.role === 'user';
-                  return (
-                    <div key={idx} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
-                      <div style={{
-                        maxWidth: '85%',
-                        padding: '12px 18px',
-                        borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                        backgroundColor: isUser ? '#111827' : '#ffffff',
-                        color: isUser ? '#ffffff' : '#1f2937',
-                        fontSize: '13.5px',
-                        lineHeight: '1.55',
-                        boxShadow: isUser ? '0 2px 6px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.05)',
-                        border: isUser ? 'none' : '1px solid #e5e7eb',
-                        whiteSpace: 'pre-wrap'
-                      }}>
-                        {m.content}
-                        {!isUser && m.audio && (
-                          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isAiSpeaking && aiCurrentAudioRef.current) {
-                                  stopAiVoice();
-                                } else {
-                                  // Direct replay
-                                  stopAiVoice();
-                                  const sound = new Audio(m.audio);
-                                  aiCurrentAudioRef.current = sound;
-                                  sound.onplay = () => setIsAiSpeaking(true);
-                                  sound.onended = () => { setIsAiSpeaking(false); aiCurrentAudioRef.current = null; };
-                                  sound.onerror = () => { setIsAiSpeaking(false); aiCurrentAudioRef.current = null; };
-                                  sound.play().catch(e => console.warn('Play error:', e));
-                                }
-                              }}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                background: '#f3f4f6',
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '6px',
-                                padding: '3px 8px',
-                                fontSize: '11px',
-                                color: '#4b5563',
-                                cursor: 'pointer',
-                                fontWeight: 500
-                              }}
-                            >
-                              {isAiSpeaking ? '⏹️ Stop' : '🔊 Replay Voice'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {aiLoading && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                    <div style={{
-                      padding: '10px 16px',
-                      borderRadius: '16px 16px 16px 4px',
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e5e7eb',
-                      fontSize: '13px',
-                      color: '#6b7280',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10b981' }}></div>
-                      Analyzing live store data...
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {isAiSpeaking && (
-                <div style={{
-                  backgroundColor: '#fef2f2',
-                  borderTop: '1px solid #fee2e2',
-                  padding: '8px 20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '12.5px',
-                  color: '#991b1b'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#dc2626' }} />
-                    <span style={{ fontWeight: 500 }}>Agent is speaking voice response...</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={stopAiVoice}
-                    style={{
-                      backgroundColor: '#dc2626',
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '4px 12px',
-                      fontSize: '11.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ⏹️ Stop Speaking
-                  </button>
-                </div>
-              )}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleAiSend();
-                }}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Voice Mute Toggle */}
+              <button
+                type="button"
+                onClick={toggleAiMute}
+                title={aiMuted ? "Unmute Voice" : "Mute Voice"}
                 style={{
-                  padding: '14px 18px',
-                  borderTop: '1px solid #f3f4f6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  backgroundColor: '#ffffff'
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  color: aiMuted ? '#f87171' : '#4ade80',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
                 }}
               >
-                <input
-                  type="text"
-                  placeholder={aiRecording ? "Recording voice command..." : "Ask or speak: store revenue, best sellers, pricing, campaigns..."}
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                  disabled={aiLoading || aiRecording}
-                  style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid #d1d5db',
-                    fontSize: '13.5px',
-                    outline: 'none',
-                    backgroundColor: aiRecording ? '#fef2f2' : '#f9fafb'
-                  }}
-                  onFocus={e => e.target.style.borderColor = '#111827'}
-                  onBlur={e => e.target.style.borderColor = '#d1d5db'}
-                />
+                {aiMuted ? '🔇 Muted' : '🔊 Voice'}
+              </button>
 
-                {/* Voice Mute Toggle Button */}
-                <button
-                  type="button"
-                  onClick={toggleAiMute}
-                  title={aiMuted ? "Voice is Muted (Click to Unmute)" : "Voice is Active (Click to Mute)"}
-                  style={{
-                    backgroundColor: aiMuted ? '#fef2f2' : '#f3f4f6',
-                    color: aiMuted ? '#dc2626' : '#4b5563',
-                    border: `1px solid ${aiMuted ? '#fca5a5' : '#d1d5db'}`,
-                    borderRadius: '8px',
-                    height: '40px',
-                    padding: '0 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  {aiMuted ? '🔇 Muted' : '🔊 Voice'}
-                </button>
+              {/* Clear History */}
+              <button
+                type="button"
+                onClick={() => setAiMessages([{
+                  role: 'assistant',
+                  content: "History cleared. What can I calculate or suggest for you?"
+                }])}
+                title="Clear Chat History"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#9ca3af',
+                  fontSize: '11.5px',
+                  cursor: 'pointer',
+                  fontWeight: 500
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
+                onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+              >
+                Clear
+              </button>
 
-                {/* Voice Mic Button */}
-                <button
-                  type="button"
-                  onClick={aiRecording ? stopAiRecording : startAiRecording}
-                  disabled={aiLoading}
-                  title={aiRecording ? "Stop & Send Voice Command" : "Speak Voice Command"}
-                  style={{
-                    backgroundColor: aiRecording ? '#ef4444' : '#f3f4f6',
-                    color: aiRecording ? '#ffffff' : '#374151',
-                    padding: '0 14px',
-                    height: '40px',
-                    borderRadius: '8px',
-                    border: aiRecording ? '1px solid #dc2626' : '1px solid #d1d5db',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    cursor: aiLoading ? 'not-allowed' : 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                    <line x1="12" y1="19" x2="12" y2="22"></line>
-                  </svg>
-                  {aiRecording ? "Stop & Send" : "Voice"}
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={aiLoading || !aiInput.trim() || aiRecording}
-                  style={{
-                    backgroundColor: '#111827',
-                    color: 'white',
-                    padding: '0 20px',
-                    height: '40px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontWeight: 600,
-                    fontSize: '13.5px',
-                    cursor: aiLoading || !aiInput.trim() || aiRecording ? 'not-allowed' : 'pointer',
-                    opacity: aiLoading || !aiInput.trim() || aiRecording ? 0.5 : 1
-                  }}
-                >
-                  Send
-                </button>
-              </form>
+              {/* Close / Minimize */}
+              <button
+                type="button"
+                onClick={() => setIsAiChatOpen(false)}
+                title="Close Co-Pilot"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: 'none',
+                  color: '#ffffff',
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '13px'
+                }}
+              >
+                ✕
+              </button>
             </div>
           </div>
-        )}
-      </main>
+
+          {/* Quick Strategy Action Pills */}
+          <div
+            style={{
+              padding: '8px 12px',
+              backgroundColor: '#f9fafb',
+              borderBottom: '1px solid #f3f4f6',
+              display: 'flex',
+              gap: '6px',
+              overflowX: 'auto',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {[
+              { label: '📊 Revenue', prompt: "Summarize today's revenue, total orders, and pending delivery status." },
+              { label: '📦 Stock & Sales', prompt: "Which products are marked as Best Sellers and what items are currently on sale?" },
+              { label: '💡 Campaigns', prompt: "Give me 3 practical high-converting promotional campaign ideas to boost accessory sales this weekend." },
+              { label: '🌐 Market Trends', prompt: "What are the most popular trending mobile accessories in Pakistan right now?" }
+            ].map((chip, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleAiSend(chip.prompt)}
+                disabled={aiLoading}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '14px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  color: '#374151',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#10b981'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Chat Messages */}
+          <div
+            style={{
+              flex: 1,
+              padding: '16px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              backgroundColor: '#f8fafc'
+            }}
+          >
+            {aiMessages.map((m, idx) => {
+              const isUser = m.role === 'user';
+              return (
+                <div key={idx} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+                  <div
+                    style={{
+                      maxWidth: '88%',
+                      padding: '10px 14px',
+                      borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                      backgroundColor: isUser ? '#111827' : '#ffffff',
+                      color: isUser ? '#ffffff' : '#1f2937',
+                      fontSize: '13px',
+                      lineHeight: '1.5',
+                      boxShadow: isUser ? '0 1px 3px rgba(0,0,0,0.1)' : '0 1px 2px rgba(0,0,0,0.05)',
+                      border: isUser ? 'none' : '1px solid #e2e8f0',
+                      whiteSpace: 'pre-wrap'
+                    }}
+                  >
+                    {m.content}
+                    {!isUser && m.audio && (
+                      <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isAiSpeaking && aiCurrentAudioRef.current) {
+                              stopAiVoice();
+                            } else {
+                              stopAiVoice();
+                              const sound = new Audio(m.audio);
+                              aiCurrentAudioRef.current = sound;
+                              sound.onplay = () => setIsAiSpeaking(true);
+                              sound.onended = () => { setIsAiSpeaking(false); aiCurrentAudioRef.current = null; };
+                              sound.onerror = () => { setIsAiSpeaking(false); aiCurrentAudioRef.current = null; };
+                              sound.play().catch(e => console.warn('Play error:', e));
+                            }
+                          }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: '#f1f5f9',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '6px',
+                            padding: '2px 8px',
+                            fontSize: '11px',
+                            color: '#475569',
+                            cursor: 'pointer',
+                            fontWeight: 500
+                          }}
+                        >
+                          {isAiSpeaking ? '⏹️ Stop' : '🔊 Replay Voice'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {aiLoading && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '14px 14px 14px 4px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '12px',
+                    color: '#64748b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }}></div>
+                  Analyzing live store data...
+                </div>
+              </div>
+            )}
+            <div ref={aiMessagesEndRef} />
+          </div>
+
+          {/* Live Voice Recording Transcript */}
+          {aiRecording && (
+            <div
+              style={{
+                backgroundColor: '#fef2f2',
+                borderTop: '1px solid #fee2e2',
+                padding: '8px 14px',
+                fontSize: '12px',
+                color: '#b91c1c',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#ef4444' }}></span>
+                <span style={{ fontWeight: 500, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                  {aiLiveTranscript || "Listening to your voice..."}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={stopAiRecording}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '2px 8px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+              >
+                Send
+              </button>
+            </div>
+          )}
+
+          {/* Input Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAiSend();
+            }}
+            style={{
+              padding: '10px 14px',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: '#ffffff'
+            }}
+          >
+            <input
+              type="text"
+              placeholder={aiRecording ? "Listening..." : "Ask: revenue, stock, pricing, campaigns..."}
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              disabled={aiLoading || aiRecording}
+              style={{
+                flex: 1,
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db',
+                fontSize: '13px',
+                outline: 'none',
+                backgroundColor: aiRecording ? '#fef2f2' : '#f9fafb'
+              }}
+              onFocus={e => e.target.style.borderColor = '#111827'}
+              onBlur={e => e.target.style.borderColor = '#d1d5db'}
+            />
+
+            {/* Voice Mic Button */}
+            <button
+              type="button"
+              onClick={aiRecording ? stopAiRecording : startAiRecording}
+              disabled={aiLoading}
+              title={aiRecording ? "Stop & Send Voice" : "Speak Voice Command"}
+              style={{
+                backgroundColor: aiRecording ? '#ef4444' : '#f1f5f9',
+                color: aiRecording ? '#ffffff' : '#475569',
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                border: aiRecording ? '1px solid #dc2626' : '1px solid #cbd5e1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: aiLoading ? 'not-allowed' : 'pointer',
+                flexShrink: 0,
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="22"></line>
+              </svg>
+            </button>
+
+            {/* Send Button */}
+            <button
+              type="submit"
+              disabled={aiLoading || !aiInput.trim() || aiRecording}
+              style={{
+                backgroundColor: '#111827',
+                color: '#ffffff',
+                padding: '0 14px',
+                height: '36px',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: aiLoading || !aiInput.trim() || aiRecording ? 'not-allowed' : 'pointer',
+                opacity: aiLoading || !aiInput.trim() || aiRecording ? 0.5 : 1,
+                flexShrink: 0
+              }}
+            >
+              Send
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
