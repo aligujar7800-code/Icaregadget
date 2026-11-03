@@ -1275,13 +1275,22 @@ app.post('/api/auth/register', async (req, res) => {
 
 // ==================== AI CHAT ROUTES (MULTI-TENANT n8n ENGINE) ====================
 
-// Helper to strip unwanted URLs, search citations, and markdown links from AI output
-function sanitizeAiReply(text) {
+// Helper to strip unwanted URLs, search citations, and markdown links from AI output unless explicitly requested
+function sanitizeAiReply(text, userMessage = '') {
   if (!text || typeof text !== 'string') return text;
+  
+  // Check if the user specifically asked for a link, URL, or website
+  const userRequestedLink = /(?:link|url|website|webpage|source\s*link)/i.test(userMessage || '');
+  if (userRequestedLink) {
+    // Keep URLs and links, but clean up messy footnote brackets like [1], [2]
+    return text.replace(/\[\s*(?:\d+|source\b[^\]]*)\s*\]/gi, '').trim();
+  }
+
+  // By default (user did NOT ask for links): strip all links, URLs, and citations
   // Convert markdown links [Label](http...) -> Label
   let cleaned = text.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]+\)/gi, '$1');
-  // Remove online search citation footnotes like [1], [2], [Source], [source 1]
-  cleaned = cleaned.replace(/\[\s*(?:\d+|source[^\]]*|link[^\]]*)\]/gi, '');
+  // Remove online search citation footnotes like [1], [2], [Source]
+  cleaned = cleaned.replace(/\[\s*(?:\d+|source[^\]]*|link[^\]]*)\s*\]/gi, '');
   // Strip any remaining bare web URLs
   cleaned = cleaned.replace(/https?:\/\/[^\s\)\],]+/gi, '');
   // Clean up any double spaces
@@ -1360,7 +1369,7 @@ app.post('/api/chat', async (req, res) => {
       if (n8nResponse.ok) {
         const data = await n8nResponse.json();
         const rawReply = typeof data === 'string' ? data : (data.reply || data.message || data.output || "Hello! How can I help you find gadgets today?");
-        const replyText = sanitizeAiReply(rawReply);
+        const replyText = sanitizeAiReply(rawReply, message);
         return res.json({ 
           success: true, 
           reply: replyText,
@@ -1497,7 +1506,7 @@ app.post('/api/chat/admin', async (req, res) => {
         const rawReply = data.reply || data.message || data.output || '';
         return res.json({ 
           success: true, 
-          reply: sanitizeAiReply(rawReply),
+          reply: sanitizeAiReply(rawReply, message),
           audio: data.audio || null,
           userText: data.userText || (message || null)
         });
