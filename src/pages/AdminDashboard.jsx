@@ -9,7 +9,7 @@ export default function AdminDashboard() {
     storeDetails, updateStoreDetails, logout, orders, updateOrderStatus, 
     categories: contextCategories, addCategory, deleteCategory, 
     addSubCategory, deleteSubCategory,
-    requestPasswordOtp, changeAdminPassword 
+    requestPasswordOtp, changeAdminPassword, expenses, addExpense, deleteExpense, getAccountingSummary 
   } = useStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('products');
@@ -17,6 +17,60 @@ export default function AdminDashboard() {
 
   // Product form state
   const [editingId, setEditingId] = useState(null);
+  const [costPrice, setCostPrice] = useState('');
+  const [supplierName, setSupplierName] = useState('');
+  const [supplierContact, setSupplierContact] = useState('');
+
+  // Accounting & Expenses State (Option 1)
+  const [accountingSummary, setAccountingSummary] = useState(null);
+  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [expenseCategory, setExpenseCategory] = useState('Marketing & Ads');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expensePaidFrom, setExpensePaidFrom] = useState('Cash in Hand');
+  const [expenseSupplier, setExpenseSupplier] = useState('');
+  const [expenseNote, setExpenseNote] = useState('');
+  const [isLoggingExpense, setIsLoggingExpense] = useState(false);
+  const [expenseFilterCat, setExpenseFilterCat] = useState('All');
+
+  const refreshAccounting = async () => {
+    try {
+      const summary = await getAccountingSummary();
+      if (summary) setAccountingSummary(summary);
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    if (activeTab === 'finances') {
+      refreshAccounting();
+    }
+  }, [activeTab, orders, expenses]);
+
+  const handleExpenseSubmit = async (e) => {
+    e.preventDefault();
+    if (!expenseAmount || Number(expenseAmount) <= 0) {
+      alert('Please enter a valid expense amount.');
+      return;
+    }
+    setIsLoggingExpense(true);
+    try {
+      await addExpense({
+        date: expenseDate,
+        category: expenseCategory,
+        amount: Number(expenseAmount),
+        paidFrom: expensePaidFrom,
+        supplierName: expenseSupplier.trim(),
+        note: expenseNote.trim()
+      });
+      setExpenseAmount('');
+      setExpenseNote('');
+      setExpenseSupplier('');
+      await refreshAccounting();
+    } catch (err) {
+      console.error('Error logging expense:', err);
+    } finally {
+      setIsLoggingExpense(false);
+    }
+  };
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('Mobiles');
@@ -403,6 +457,9 @@ export default function AdminDashboard() {
     setEditingId(product.id);
     setName(product.name);
     setPrice(product.price);
+    setCostPrice(product.costPrice || '');
+    setSupplierName(product.supplierName || '');
+    setSupplierContact(product.supplierContact || '');
     setCategory(product.category);
     setSubCategory(product.subCategory || '');
     setSale(product.sale);
@@ -415,6 +472,9 @@ export default function AdminDashboard() {
     setEditingId(null);
     setName('');
     setPrice('');
+    setCostPrice('');
+    setSupplierName('');
+    setSupplierContact('');
     setSubCategory('');
     setImagesPreview([]);
     setDescription('');
@@ -434,11 +494,19 @@ export default function AdminDashboard() {
       }
     }
 
+    const productPayload = {
+      name, price, category, subCategory, sale, bestSeller, description,
+      image: imagesPreview[0] || '', images: imagesPreview,
+      costPrice: costPrice.trim() || '0',
+      supplierName: supplierName.trim(),
+      supplierContact: supplierContact.trim()
+    };
+
     if (editingId) {
-      updateProduct(editingId, { name, price, category, subCategory, sale, bestSeller, description, image: imagesPreview[0] || '', images: imagesPreview });
+      updateProduct(editingId, productPayload);
       alert('Product updated successfully!');
     } else {
-      addProduct({ name, price, category, subCategory, sale, bestSeller, description, image: imagesPreview[0] || '', images: imagesPreview });
+      addProduct(productPayload);
       alert('Product published successfully!');
     }
     handleCancelEdit();
@@ -649,6 +717,16 @@ export default function AdminDashboard() {
             </div>
           </button>
 
+          <button onClick={() => setActiveTab('finances')} style={sidebarBtnStyle(activeTab === 'finances')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                Finances & P&L
+              </div>
+              <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 6px', borderRadius: '99px', fontSize: '0.7rem', fontWeight: 'bold' }}>P&L</span>
+            </div>
+          </button>
+
           <button onClick={() => setActiveTab('products')} style={sidebarBtnStyle(activeTab === 'products')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
@@ -695,6 +773,7 @@ export default function AdminDashboard() {
               {activeTab === 'categories' && 'Categories Management'}
               {activeTab === 'store' && 'Store Settings'}
               {activeTab === 'orders' && 'Customer Orders'}
+              {activeTab === 'finances' && 'Store Finances, Expenses & Net Profit'}
               {activeTab === 'security' && 'Security & Password Settings'}
               
             </h1>
@@ -887,7 +966,8 @@ export default function AdminDashboard() {
                     <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
                       <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Product</th>
                       <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Category</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Price</th>
+                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Price & Cost</th>
+                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Margin</th>
                       <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Action</th>
                     </tr>
                   </thead>
@@ -910,7 +990,34 @@ export default function AdminDashboard() {
                             <span style={{ display: 'block', fontSize: '0.75rem', color: '#9ca3af' }}>{product.subCategory}</span>
                           )}
                         </td>
-                        <td style={{ padding: '14px 16px', color: '#111827', fontWeight: '500', fontSize: '0.875rem' }}>{product.price}</td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ color: '#111827', fontWeight: '600', fontSize: '0.875rem' }}>{product.price}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                            Cost: PKR {(parseInt(String(product.costPrice || '0').replace(/[^0-9]/g, ''), 10) || 0).toLocaleString()}
+                          </div>
+                        </td>
+                        <td style={{ padding: '14px 16px' }}>
+                          {(() => {
+                            const sp = parseInt(String(product.price || '0').replace(/[^0-9]/g, ''), 10) || 0;
+                            const cp = parseInt(String(product.costPrice || '0').replace(/[^0-9]/g, ''), 10) || 0;
+                            if (sp > 0 && cp > 0) {
+                              const margin = Number((((sp - cp) / sp) * 100).toFixed(0));
+                              return (
+                                <span style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '99px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '700',
+                                  backgroundColor: margin >= 30 ? '#dcfce7' : margin >= 15 ? '#fef3c7' : '#fee2e2',
+                                  color: margin >= 30 ? '#15803d' : margin >= 15 ? '#b45309' : '#b91c1c'
+                                }}>
+                                  {margin}%
+                                </span>
+                              );
+                            }
+                            return <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>—</span>;
+                          })()}
+                        </td>
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ display: 'flex', gap: '12px' }}>
                             <button onClick={() => handleEditClick(product)} style={{ border: 'none', background: 'none', color: '#3b82f6', fontWeight: '600', cursor: 'pointer', fontSize: '0.875rem' }}>Edit</button>
@@ -984,9 +1091,56 @@ export default function AdminDashboard() {
                   <input type="text" value={name} onChange={e => setName(e.target.value)} required style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} placeholder="e.g. iPhone 15 Pro" />
                 </div>
 
-                <div>
-                  <label style={labelStyle}>Price</label>
-                  <input type="text" value={price} onChange={e => setPrice(e.target.value)} required style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} placeholder="e.g. Rs. 350,000" />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Selling Price (PKR) *</label>
+                    <input type="text" value={price} onChange={e => setPrice(e.target.value)} required style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} placeholder="e.g. Rs. 3,500" />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Cost Price / COGS (PKR)</label>
+                    <input type="text" value={costPrice} onChange={e => setCostPrice(e.target.value)} style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} placeholder="e.g. 2,200" />
+                  </div>
+                </div>
+
+                {/* Live Unit Margin Calculator */}
+                {(() => {
+                  const parseNum = (v) => parseInt(String(v || '').replace(/[^0-9]/g, ''), 10) || 0;
+                  const sp = parseNum(price);
+                  const cp = parseNum(costPrice);
+                  if (sp > 0 && cp > 0) {
+                    const profit = sp - cp;
+                    const margin = Number(((profit / sp) * 100).toFixed(1));
+                    const isGood = profit > 0;
+                    return (
+                      <div style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        backgroundColor: isGood ? '#f0fdf4' : '#fef2f2',
+                        border: `1px solid ${isGood ? '#bbf7d0' : '#fecaca'}`,
+                        fontSize: '0.8rem',
+                        color: isGood ? '#166534' : '#b91c1c',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <span>📈 Unit Profit: <strong>PKR {profit.toLocaleString()}</strong></span>
+                        <span>📊 Gross Margin: <strong>{margin}%</strong></span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* Supplier Procurement Info */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Supplier Name (Optional)</label>
+                    <input type="text" value={supplierName} onChange={e => setSupplierName(e.target.value)} style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} placeholder="e.g. Vendor A" />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Supplier Contact / WhatsApp</label>
+                    <input type="text" value={supplierContact} onChange={e => setSupplierContact(e.target.value)} style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} placeholder="e.g. 0300-1234567" />
+                  </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -1554,6 +1708,379 @@ export default function AdminDashboard() {
 
           </div>
         )}
+
+        {/* ===== FINANCES & P&L TAB (OPTION 1) ===== */}
+        {activeTab === 'finances' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {/* Top Executive KPI Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+              
+              {/* 1. Delivered Sales */}
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Delivered Revenue (Cash)
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#15803d', marginTop: '6px' }}>
+                  PKR {(accountingSummary?.deliveredRevenue || 0).toLocaleString()}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                  {accountingSummary?.deliveredOrdersCount || 0} delivered orders
+                </div>
+              </div>
+
+              {/* 2. Total COGS */}
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Delivered COGS (Cost)
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0369a1', marginTop: '6px' }}>
+                  PKR {(accountingSummary?.deliveredCOGS || 0).toLocaleString()}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                  Wholesale product cost
+                </div>
+              </div>
+
+              {/* 3. Gross Profit */}
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Gross Profit (Margin)
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#7e22ce', marginTop: '6px' }}>
+                  PKR {(accountingSummary?.grossProfit || 0).toLocaleString()}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#7e22ce', fontWeight: '700', marginTop: '4px' }}>
+                  {accountingSummary?.grossMarginPercent || 0}% Gross Margin
+                </div>
+              </div>
+
+              {/* 4. Total Operating Expenses */}
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Operating Expenses
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#b91c1c', marginTop: '6px' }}>
+                  PKR {(accountingSummary?.totalExpenses || 0).toLocaleString()}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                  {expenses.length} logged expenses
+                </div>
+              </div>
+
+              {/* 5. Net Bottom-Line Profit */}
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '2px solid ' + ((accountingSummary?.netProfit || 0) >= 0 ? '#10b981' : '#ef4444'), boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: '700', color: (accountingSummary?.netProfit || 0) >= 0 ? '#15803d' : '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Net Operational Profit
+                </div>
+                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: (accountingSummary?.netProfit || 0) >= 0 ? '#15803d' : '#b91c1c', marginTop: '6px' }}>
+                  PKR {(accountingSummary?.netProfit || 0).toLocaleString()}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                  Gross Profit &minus; All Expenses
+                </div>
+              </div>
+
+            </div>
+
+            {/* Main Finances Content Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '28px', alignItems: 'flex-start' }}>
+              
+              {/* Left Column: Expense Ledger Table */}
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+                    Expense Ledger ({expenses.length})
+                  </h3>
+
+                  {/* Filter chips */}
+                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', maxWidth: '100%' }}>
+                    {['All', 'Marketing & Ads', 'Courier Fees', 'Packaging', 'Rent & Bills', 'Supplier Payment', 'Salaries', 'Other'].map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setExpenseFilterCat(cat)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '16px',
+                          border: 'none',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          backgroundColor: expenseFilterCat === cat ? '#111827' : '#f1f5f9',
+                          color: expenseFilterCat === cat ? '#ffffff' : '#475569'
+                        }}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {expenses.length === 0 ? (
+                  <div style={{ padding: '40px 0', textAlign: 'center', color: '#64748b' }}>
+                    No expenses logged yet. Use the quick logger on the right to track ad spend, flyers, and courier charges!
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600' }}>Date</th>
+                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600' }}>Category</th>
+                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600' }}>Source</th>
+                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600' }}>Note / Vendor</th>
+                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600', textAlign: 'right' }}>Amount (PKR)</th>
+                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600', textAlign: 'center' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {expenses
+                          .filter(exp => expenseFilterCat === 'All' || exp.category === expenseFilterCat)
+                          .map(exp => (
+                            <tr key={exp.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '12px', color: '#334155', whiteSpace: 'nowrap' }}>{exp.date}</td>
+                              <td style={{ padding: '12px' }}>
+                                <span style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '600',
+                                  backgroundColor: '#f1f5f9',
+                                  color: '#334155'
+                                }}>
+                                  {exp.category}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                                {exp.paidFrom === 'Bank Account' ? '🏦 Bank' : '💵 Cash'}
+                              </td>
+                              <td style={{ padding: '12px', color: '#475569', maxWidth: '180px' }}>
+                                {exp.supplierName && <span style={{ fontWeight: '600', color: '#0f172a' }}>{exp.supplierName}: </span>}
+                                <span>{exp.note || '—'}</span>
+                              </td>
+                              <td style={{ padding: '12px', textAlign: 'right', fontWeight: '700', color: '#b91c1c', whiteSpace: 'nowrap' }}>
+                                - PKR {Number(exp.amount).toLocaleString()}
+                              </td>
+                              <td style={{ padding: '12px', textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (window.confirm('Delete this expense entry?')) {
+                                      await deleteExpense(exp.id);
+                                      await refreshAccounting();
+                                    }
+                                  }}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '0.9rem' }}
+                                  title="Delete Expense"
+                                >
+                                  🗑️
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Quick Expense Logger & Supplier Balances */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                
+                {/* 1. Quick Log Expense Card */}
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a', margin: '0 0 16px 0' }}>
+                    + Log Store Expense
+                  </h3>
+
+                  {/* Fast Preset Chips */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                    {[
+                      { label: 'Meta Ads', cat: 'Marketing & Ads', source: 'Bank Account' },
+                      { label: 'Courier Fees', cat: 'Courier Fees', source: 'Cash in Hand' },
+                      { label: 'Flyer Bags', cat: 'Packaging', source: 'Cash in Hand' },
+                      { label: 'Shop Rent', cat: 'Rent & Bills', source: 'Bank Account' },
+                      { label: 'Supplier Pay', cat: 'Supplier Payment', source: 'Bank Account' }
+                    ].map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setExpenseCategory(p.cat);
+                          setExpensePaidFrom(p.source);
+                        }}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          fontSize: '0.72rem',
+                          fontWeight: '600',
+                          color: '#475569',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <form onSubmit={handleExpenseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Date</label>
+                        <input
+                          type="date"
+                          value={expenseDate}
+                          onChange={e => setExpenseDate(e.target.value)}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Paid From</label>
+                        <select
+                          value={expensePaidFrom}
+                          onChange={e => setExpensePaidFrom(e.target.value)}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none' }}
+                        >
+                          <option value="Cash in Hand">💵 Cash in Hand</option>
+                          <option value="Bank Account">🏦 Bank Account</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Expense Category</label>
+                      <select
+                        value={expenseCategory}
+                        onChange={e => setExpenseCategory(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none' }}
+                      >
+                        <option value="Marketing & Ads">📢 Marketing & Meta/TikTok Ads</option>
+                        <option value="Courier Fees">🚚 Courier Freight & RTO Charges</option>
+                        <option value="Packaging">📦 Packaging Bags & Tape</option>
+                        <option value="Rent & Bills">🏢 Shop Rent, Electricity & Bills</option>
+                        <option value="Supplier Payment">🤝 Supplier Stock Payment</option>
+                        <option value="Salaries">👥 Staff Salaries & Wages</option>
+                        <option value="Other">📝 Miscellaneous / Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Amount (PKR) *</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 5000"
+                        value={expenseAmount}
+                        onChange={e => setExpenseAmount(e.target.value)}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                        required
+                        min="1"
+                      />
+                    </div>
+
+                    {expenseCategory === 'Supplier Payment' && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Supplier / Vendor Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Hall Road Vendor A"
+                          value={expenseSupplier}
+                          onChange={e => setExpenseSupplier(e.target.value)}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Description / Note</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 500 flyers or Weekend campaign ads"
+                        value={expenseNote}
+                        onChange={e => setExpenseNote(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isLoggingExpense}
+                      style={{
+                        marginTop: '6px',
+                        padding: '11px',
+                        borderRadius: '8px',
+                        backgroundColor: '#111827',
+                        color: '#ffffff',
+                        border: 'none',
+                        fontWeight: '700',
+                        fontSize: '0.9rem',
+                        cursor: isLoggingExpense ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {isLoggingExpense ? 'Saving Expense...' : 'Record Expense'}
+                    </button>
+                  </form>
+                </div>
+
+                {/* 2. Supplier Procurement Summary Card */}
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a', margin: '0 0 14px 0' }}>
+                    Suppliers Directory
+                  </h3>
+
+                  {(() => {
+                    const supplierMap = {};
+                    products.forEach(p => {
+                      const sName = (p.supplierName || '').trim();
+                      if (sName) {
+                        if (!supplierMap[sName]) {
+                          supplierMap[sName] = { name: sName, contact: p.supplierContact || '', productsCount: 0 };
+                        }
+                        supplierMap[sName].productsCount++;
+                      }
+                    });
+
+                    const suppliers = Object.values(supplierMap);
+                    if (suppliers.length === 0) {
+                      return (
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                          No supplier info assigned to products yet. Enter supplier name when adding or editing products in the Products tab.
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {suppliers.map((sup, idx) => (
+                          <div key={idx} style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <div style={{ fontWeight: '700', fontSize: '0.85rem', color: '#0f172a' }}>{sup.name}</div>
+                              {sup.contact && (
+                                <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: '600' }}>
+                                  📞 {sup.contact}
+                                </div>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '0.75rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '2px 8px', borderRadius: '99px', fontWeight: '600' }}>
+                              {sup.productsCount} items
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
         {/* Courier & Tracking Modal */}
         {editingTrackingOrder && (
           <div style={{

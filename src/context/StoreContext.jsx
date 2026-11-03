@@ -70,6 +70,7 @@ export const StoreProvider = ({ children }) => {
   useEffect(() => { try { localStorage.setItem('orders', JSON.stringify(orders)); } catch(e){} }, [orders]);
   useEffect(() => { try { localStorage.setItem('cart', JSON.stringify(cart)); } catch(e){} }, [cart]);
   useEffect(() => { try { localStorage.setItem('categories', JSON.stringify(categories)); } catch(e){} }, [categories]);
+  useEffect(() => { try { localStorage.setItem('expenses', JSON.stringify(expenses)); } catch(e){} }, [expenses]);
 
   // Load from MySQL backend on initial mount
   useEffect(() => {
@@ -647,15 +648,61 @@ export const StoreProvider = ({ children }) => {
     }
   };
 
+  const addExpense = async (expenseData) => {
+    try {
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(expenseData)
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setExpenses(prev => [saved, ...prev]);
+        return { success: true, expense: saved };
+      }
+    } catch (err) {
+      console.error('Failed to log expense:', err);
+    }
+    const local = { ...expenseData, id: Date.now(), amount: Number(expenseData.amount || 0) };
+    setExpenses(prev => [local, ...prev]);
+    return { success: true, expense: local };
+  };
+
+  const deleteExpense = async (id) => {
+    try {
+      const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setExpenses(prev => prev.filter(e => e.id !== Number(id)));
+        return { success: true };
+      }
+    } catch (err) {
+      console.error('Failed to delete expense:', err);
+    }
+    setExpenses(prev => prev.filter(e => e.id !== Number(id)));
+    return { success: true };
+  };
+
+  const getAccountingSummary = async () => {
+    try {
+      const res = await fetch('/api/accounting/summary');
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (err) {
+      console.error('Accounting summary error:', err);
+    }
+    return null;
+  };
+
   return (
-    <StoreContext.Provider value={{ 
-      user, login, register, loginWithGoogle, logout,
+    <StoreContext.Provider value={{
+user, login, register, loginWithGoogle, logout,
       updateCustomerProfile, changeCustomerPassword, getCustomerOrders,
       verifyAdminOtp, resendAdminOtp, requestPasswordOtp, changeAdminPassword,
       storeDetails, updateStoreDetails, 
       categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory,
       products, addProduct, updateProduct, deleteProduct,
-      orders, placeOrder, updateOrderStatus, trackOrderPublic,
+      orders, placeOrder, updateOrderStatus, trackOrderPublic, expenses, addExpense, deleteExpense, getAccountingSummary,
       cart, addToCart, removeFromCart, updateQuantity, clearCart,
       isCartOpen, setIsCartOpen,
       isMobileMenuOpen, setIsMobileMenuOpen,

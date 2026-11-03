@@ -29,6 +29,7 @@ const DEFAULT_DB = {
     'Gaming': []
   },
   orders: [],
+  expenses: [],
   store_details: {
     address: 'Kohinoor City',
     hours: '10 AM - 10 PM',
@@ -259,6 +260,34 @@ export const fallbackStore = {
     if (trackingNumber !== undefined && trackingNumber !== null) db.orders[idx].trackingNumber = trackingNumber;
     writeDB(db);
     return db.orders[idx];
+  },
+
+  // Expenses (Accounting Option 1)
+  getExpenses() {
+    const db = readDB();
+    return db.expenses || [];
+  },
+
+  addExpense(expense) {
+    const db = readDB();
+    if (!db.expenses) db.expenses = [];
+    const newExpense = {
+      ...expense,
+      id: Number(expense.id || Date.now()),
+      amount: Number(expense.amount || 0),
+      created_at: new Date().toISOString()
+    };
+    db.expenses.unshift(newExpense);
+    writeDB(db);
+    return newExpense;
+  },
+
+  deleteExpense(id) {
+    const db = readDB();
+    if (!db.expenses) return true;
+    db.expenses = db.expenses.filter(e => e.id !== Number(id));
+    writeDB(db);
+    return true;
   },
 
   // Store Details

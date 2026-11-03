@@ -45,6 +45,9 @@ export async function initDB() {
         category VARCHAR(100) NOT NULL,
         subCategory VARCHAR(100) DEFAULT '',
         bestSeller BOOLEAN DEFAULT FALSE,
+        costPrice VARCHAR(100) DEFAULT '0',
+        supplierName VARCHAR(150) DEFAULT '',
+        supplierContact VARCHAR(50) DEFAULT '',
         image LONGTEXT,
         images LONGTEXT,
         description TEXT,
@@ -115,6 +118,20 @@ export async function initDB() {
         action VARCHAR(50) NOT NULL,
         expires_at DATETIME NOT NULL,
         is_used BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+        // 7. Expenses table for Smart E-Commerce Accounting (Option 1)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS expenses (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        date VARCHAR(50) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        paidFrom VARCHAR(50) NOT NULL DEFAULT 'Cash in Hand',
+        supplierName VARCHAR(150) DEFAULT '',
+        note TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
@@ -190,6 +207,9 @@ export async function initDB() {
     await safeAddColumn('orders', 'items', 'JSON');
     await safeAddColumn('orders', 'courier', "VARCHAR(100) DEFAULT ''");
     await safeAddColumn('orders', 'trackingNumber', "VARCHAR(100) DEFAULT ''");
+    await safeAddColumn('products', 'costPrice', "VARCHAR(100) DEFAULT '0'");
+    await safeAddColumn('products', 'supplierName', "VARCHAR(150) DEFAULT ''");
+    await safeAddColumn('products', 'supplierContact', "VARCHAR(50) DEFAULT ''");
 
     console.log('✅ MySQL Database initialized successfully');
   } catch (err) {

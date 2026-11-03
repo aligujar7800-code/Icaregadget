@@ -34,6 +34,9 @@ function formatProduct(p) {
     id: Number(p.id),
     sale: Boolean(p.sale),
     bestSeller: Boolean(p.bestSeller),
+    costPrice: p.costPrice || '0',
+    supplierName: p.supplierName || '',
+    supplierContact: p.supplierContact || '',
     images: images,
     image: p.image || (images.length > 0 ? images[0] : '')
   };
@@ -496,6 +499,201 @@ app.get('/api/orders/track', async (req, res) => {
   } catch (err) {
     console.error('Error tracking order:', err);
     res.status(500).json({ success: false, error: 'Internal error checking order status' });
+  }
+});
+
+
+// ==================== ACCOUNTING & EXPENSES (OPTION 1) ====================
+app.get('/api/expenses', async (req, res) => {
+  if (isDbConnected) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM expenses ORDER BY id DESC');
+      return res.json(rows.map(r => ({ ...r, id: Number(r.id), amount: Number(r.amount) })));
+    } catch (err) {
+      console.warn('MySQL expenses fetch error, using fallback:', err.message);
+    }
+  }
+  res.json(fallbackStore.getExpenses());
+});
+
+app.post('/api/expenses', async (req, res) => {
+  try {
+    const { 
+      date = new Date().toISOString().split('T')[0], 
+      category = 'Miscellaneous', 
+      amount = 0, 
+      paidFrom = 'Cash in Hand', 
+      supplierName = '', 
+      note = '' 
+    } = req.body;
+
+    const numAmount = Math.max(0, Number(amount) || 0);
+
+    if (isDbConnected) {
+      try {
+        const [result] = await pool.query(
+          `INSERT INTO expenses (date, category, amount, paidFrom, supplierName, note)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [date, category, numAmount, paidFrom, supplierName, note]
+        );
+        const [newExp] = await pool.query('SELECT * FROM expenses WHERE id = ?', [result.insertId]);
+        return res.status(201).json({ ...newExp[0], id: Number(newExp[0].id), amount: Number(newExp[0].amount) });
+      } catch (dbErr) {
+        console.warn('MySQL expense insert error, using fallback:', dbErr.message);
+      }
+    }
+
+    const saved = fallbackStore.addExpense({ date, category, amount: numAmount, paidFrom, supplierName, note });
+    res.status(201).json(saved);
+  } catch (err) {
+    console.error('Error logging expense:', err);
+    res.status(500).json({ error: 'Failed to record expense' });
+  }
+});
+
+app.delete('/api/expenses/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (isDbConnected) {
+      try {
+        await pool.query('DELETE FROM expenses WHERE id = ?', [id]);
+        return res.json({ success: true, id: Number(id) });
+      } catch (dbErr) {
+        console.warn('MySQL expense delete error, using fallback:', dbErr.message);
+      }
+    }
+    fallbackStore.deleteExpense(id);
+    res.json({ success: true, id: Number(id) });
+  } catch (err) {
+    console.error('Error deleting expense:', err);
+    res.status(500).json({ error: 'Failed to delete expense' });
+  }
+});
+
+app.get('/api/accounting/summary', async (req, res) => {
+  try {
+    let ordersList = [];
+    let productsList = [];
+    let expensesList = [];
+
+    if (isDbConnected) {
+      try {
+        const [oRows] = await pool.query('SELECT * FROM orders');
+        ordersList = oRows.map(o => ({
+          ...o,
+          id: Number(o.id),
+          items: typeof o.items === 'string' ? JSON.parse(o.items || '[]') : (o.items || [])
+        }));
+
+        const [pRows] = await pool.query('SELECT id, name, price, costPrice, supplierName FROM products');
+        productsList = pRows;
+
+        const [eRows] = await pool.query('SELECT * FROM expenses ORDER BY id DESC');
+        expensesList = eRows.map(e => ({ ...e, id: Number(e.id), amount: Number(e.amount) }));
+      } catch (dbErr) {
+        console.warn('MySQL accounting summary fetch error:', dbErr.message);
+      }
+    }
+
+    if (ordersList.length === 0) ordersList = fallbackStore.getOrders();
+    if (productsList.length === 0) productsList = fallbackStore.getProducts();
+    if (expensesList.length === 0) expensesList = fallbackStore.getExpenses();
+
+    // Map product prices & cost prices for fast lookup
+    const productCostMap = {};
+    productsList.forEach(p => {
+      const cleanCost = parseInt(String(p.costPrice || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      productCostMap[p.id] = cleanCost;
+      if (p.name) productCostMap[p.name.toLowerCase().trim()] = cleanCost;
+    });
+
+    const parseNum = (str) => {
+      if (!str) return 0;
+      const num = parseInt(String(str).replace(/[^0-9]/g, ''), 10);
+      return isNaN(num) ? 0 : num;
+    };
+
+    let totalDeliveredRevenue = 0;
+    let totalDeliveredCOGS = 0;
+    let deliveredOrdersCount = 0;
+
+    let totalPendingRevenue = 0;
+    let pendingOrdersCount = 0;
+
+    ordersList.forEach(order => {
+      const status = (order.status || 'Pending').toLowerCase();
+      const orderPrice = parseNum(order.price);
+
+      // Calculate order's total COGS from its items
+      let orderCOGS = 0;
+      if (Array.isArray(order.items) && order.items.length > 0) {
+        order.items.forEach(it => {
+          const qty = it.quantity || 1;
+          const cost = productCostMap[it.id] || productCostMap[(it.name || '').toLowerCase().trim()] || 0;
+          orderCOGS += (cost * qty);
+        });
+      } else if (order.productName) {
+        const cost = productCostMap[(order.productName || '').toLowerCase().trim()] || 0;
+        orderCOGS += cost;
+      }
+
+      if (status === 'delivered') {
+        totalDeliveredRevenue += orderPrice;
+        totalDeliveredCOGS += orderCOGS;
+        deliveredOrdersCount++;
+      } else if (status !== 'cancelled') {
+        totalPendingRevenue += orderPrice;
+        pendingOrdersCount++;
+      }
+    });
+
+    const grossProfit = totalDeliveredRevenue - totalDeliveredCOGS;
+    const grossMarginPercent = totalDeliveredRevenue > 0 
+      ? Number(((grossProfit / totalDeliveredRevenue) * 100).toFixed(1)) 
+      : 0;
+
+    // Categorized Expenses
+    let totalExpenses = 0;
+    let totalPaidFromCash = 0;
+    let totalPaidFromBank = 0;
+    const expenseCategories = {};
+
+    expensesList.forEach(exp => {
+      const amt = Number(exp.amount) || 0;
+      totalExpenses += amt;
+      const cat = exp.category || 'Other';
+      expenseCategories[cat] = (expenseCategories[cat] || 0) + amt;
+
+      const source = (exp.paidFrom || '').toLowerCase();
+      if (source.includes('bank')) {
+        totalPaidFromBank += amt;
+      } else {
+        totalPaidFromCash += amt;
+      }
+    });
+
+    // Net Operational Profit = Gross Profit - Total Operating Expenses (excluding direct supplier repayments if separate)
+    const netProfit = grossProfit - totalExpenses;
+
+    res.json({
+      success: true,
+      deliveredRevenue: totalDeliveredRevenue,
+      deliveredCOGS: totalDeliveredCOGS,
+      grossProfit,
+      grossMarginPercent,
+      deliveredOrdersCount,
+      pendingRevenue: totalPendingRevenue,
+      pendingOrdersCount,
+      totalExpenses,
+      netProfit,
+      expenseCategories,
+      totalPaidFromCash,
+      totalPaidFromBank,
+      totalExpensesCount: expensesList.length
+    });
+  } catch (err) {
+    console.error('Accounting summary error:', err);
+    res.status(500).json({ success: false, error: 'Failed to calculate accounting summary' });
   }
 });
 
