@@ -161,7 +161,7 @@ export default function LoginPage() {
     }
   };
 
-  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '832383192913-k0t8t3j2m1hjgmhpj5vbd50qcg0kpmtu.apps.googleusercontent.com';
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '672904661410-kijn1j74a0oa9r622cfkmnu6i2n404l2.apps.googleusercontent.com';
 
   const handleGoogleCredentialResponse = async (response) => {
     if (!response?.credential) return;
