@@ -12,8 +12,42 @@ export default function AdminDashboard() {
     requestPasswordOtp, changeAdminPassword, expenses, addExpense, deleteExpense, getAccountingSummary 
   } = useStore();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('products');
+  const [activeTab, setActiveTab] = useState('orders');
   const fileInputRef = useRef(null);
+
+  // Sidebar open/close state (persisted)
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem('admin_sidebar_open');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleSidebar = () => {
+    setSidebarOpen(prev => {
+      const next = !prev;
+      try { localStorage.setItem('admin_sidebar_open', String(next)); } catch {}
+      return next;
+    });
+  };
+
+  // Profile dropdown menu state
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    if (profileMenuOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [profileMenuOpen]);
 
   // Product form state
   const [editingId, setEditingId] = useState(null);
@@ -699,89 +733,351 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="admin-layout" style={{ display: 'flex', minHeight: 'calc(100vh - 80px)', backgroundColor: '#f3f4f6' }}>
-      {/* Sidebar */}
-      <aside className="admin-sidebar" style={{ width: '260px', backgroundColor: '#111827', color: 'white', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid #374151' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Admin Dashboard</h2>
-        </div>
-        <nav style={{ flex: 1, padding: '24px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          
-          <button onClick={() => setActiveTab('orders')} style={sidebarBtnStyle(activeTab === 'orders')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
-                Customer Orders
-              </div>
-              {orders.length > 0 && <span style={{ backgroundColor: 'var(--orange)', color: 'white', padding: '2px 8px', borderRadius: '99px', fontSize: '0.75rem' }}>{orders.length}</span>}
-            </div>
+    <div className="admin-layout" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', backgroundColor: '#f8fafc' }}>
+      {/* Sleek Admin Topbar (52px) */}
+      <header style={{
+        height: '52px',
+        backgroundColor: '#111827',
+        color: '#ffffff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 16px',
+        borderBottom: '1px solid #1f2937',
+        flexShrink: 0,
+        zIndex: 50,
+        userSelect: 'none'
+      }}>
+        {/* Left: Sidebar Toggle + Brand + Breadcrumb */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            style={{
+              background: '#1f2937',
+              border: '1px solid #374151',
+              color: '#f9fafb',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#374151'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#1f2937'}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+            <span>{sidebarOpen ? 'Collapse' : 'Menu'}</span>
           </button>
 
-          <button onClick={() => setActiveTab('finances')} style={sidebarBtnStyle(activeTab === 'finances')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
-                Finances & P&L
-              </div>
-              <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 6px', borderRadius: '99px', fontSize: '0.7rem', fontWeight: 'bold' }}>P&L</span>
-            </div>
-          </button>
-
-          <button onClick={() => setActiveTab('products')} style={sidebarBtnStyle(activeTab === 'products')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              Products
-            </div>
-          </button>
-
-          <button onClick={() => setActiveTab('categories')} style={sidebarBtnStyle(activeTab === 'categories')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h7" /></svg>
-              Categories
-            </div>
-          </button>
-
-          <button onClick={() => setActiveTab('store')} style={sidebarBtnStyle(activeTab === 'store')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-              Store Settings
-            </div>
-          </button>
-
-          <button onClick={() => setActiveTab('security')} style={sidebarBtnStyle(activeTab === 'security')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-              Security & Password
-            </div>
-          </button>
-
-        </nav>
-        <div style={{ padding: '24px 12px' }}>
-          <button onClick={handleLogout} style={{ width: '100%', textAlign: 'left', padding: '12px 16px', borderRadius: '8px', color: '#f87171', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px', transition: 'background 0.2s', border: 'none', cursor: 'pointer', backgroundColor: 'transparent' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="admin-main" style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
-        <header className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-          <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>
-              {activeTab === 'products' && 'Products Management'}
-              {activeTab === 'categories' && 'Categories Management'}
-              {activeTab === 'store' && 'Store Settings'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 800, letterSpacing: '0.5px', color: '#f59e0b', fontSize: '13px' }}>I CARE</span>
+            <span style={{ color: '#4b5563' }}>/</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#e5e7eb' }}>
               {activeTab === 'orders' && 'Customer Orders'}
-              {activeTab === 'finances' && 'Store Finances, Expenses & Net Profit'}
-              {activeTab === 'security' && 'Security & Password Settings'}
-              
-            </h1>
-            <p style={{ color: '#6b7280', marginTop: '4px' }}>Welcome back, Admin.</p>
+              {activeTab === 'finances' && 'Finances & P&L'}
+              {activeTab === 'products' && 'Products'}
+              {activeTab === 'categories' && 'Categories'}
+              {activeTab === 'store' && 'Store Settings'}
+              {activeTab === 'security' && 'Security & Password'}
+            </span>
           </div>
-        </header>
+        </div>
 
-        {/* ===== ORDERS TAB ===== */}
+        {/* Right: Quick actions + AI Advisor + Profile Icon */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* AI Advisor Button */}
+          <button
+            type="button"
+            onClick={() => setIsAiChatOpen(prev => !prev)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: isAiChatOpen ? '#2563eb' : '#1f2937',
+              color: '#ffffff',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={e => !isAiChatOpen && (e.currentTarget.style.backgroundColor = '#374151')}
+            onMouseLeave={e => !isAiChatOpen && (e.currentTarget.style.backgroundColor = '#1f2937')}
+          >
+            <span>🤖 AI Advisor</span>
+          </button>
+
+          {/* View Live Storefront */}
+          <button
+            type="button"
+            onClick={() => window.open('/', '_blank')}
+            title="Open storefront website in new tab"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: '#1f2937',
+              color: '#9ca3af',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#374151'; e.currentTarget.style.color = '#ffffff'; }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#1f2937'; e.currentTarget.style.color = '#9ca3af'; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            <span>Storefront</span>
+          </button>
+
+          {/* Admin Profile Dropdown */}
+          <div ref={profileMenuRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setProfileMenuOpen(prev => !prev)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: profileMenuOpen ? '#374151' : '#1f2937',
+                border: '1px solid #4b5563',
+                borderRadius: '999px',
+                padding: '3px 10px 3px 3px',
+                cursor: 'pointer',
+                color: '#ffffff',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = '#9ca3af'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = '#4b5563'}
+            >
+              <div style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--orange, #ea580c)',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 0 0 2px #10b981'
+              }}>
+                A
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 600 }}>Admin</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: profileMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+
+            {/* Profile Dropdown Menu */}
+            {profileMenuOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '40px',
+                right: '0',
+                width: '220px',
+                backgroundColor: '#ffffff',
+                color: '#1f2937',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb',
+                padding: '6px 0',
+                zIndex: 100
+              }}>
+                <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>Store Administrator</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>{user?.email || 'admin@icaregadget.store'}</div>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('store'); setProfileMenuOpen(false); }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 16px',
+                    textAlign: 'left',
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '12px',
+                    color: '#374151',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  ⚙️ Store Settings
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('security'); setProfileMenuOpen(false); }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 16px',
+                    textAlign: 'left',
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '12px',
+                    color: '#374151',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  🔒 Password & Security
+                </button>
+
+                <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '4px 0' }} />
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  style={{
+                    width: '100%',
+                    padding: '8px 16px',
+                    textAlign: 'left',
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '12px',
+                    color: '#ef4444',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  🚪 Logout
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Horizontal Body Container (Sidebar + Main Workspace) */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* Collapsible Sidebar */}
+        <aside
+          className="admin-sidebar"
+          style={{
+            width: sidebarOpen ? '230px' : '0px',
+            opacity: sidebarOpen ? 1 : 0,
+            overflow: 'hidden',
+            transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease',
+            backgroundColor: '#111827',
+            color: 'white',
+            display: 'flex',
+            flexDirection: 'column',
+            flexShrink: 0,
+            borderRight: sidebarOpen ? '1px solid #1f2937' : 'none',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <div style={{ padding: '14px 14px', borderBottom: '1px solid #1f2937', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Navigation</span>
+            <button 
+              type="button" 
+              onClick={toggleSidebar} 
+              title="Collapse sidebar"
+              style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
+              onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+          </div>
+
+          <nav style={{ flex: 1, padding: '14px 8px', display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto' }}>
+            
+            <button onClick={() => setActiveTab('orders')} style={sidebarBtnStyle(activeTab === 'orders')}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
+                  Customer Orders
+                </div>
+                {orders.length > 0 && <span style={{ backgroundColor: 'var(--orange, #ea580c)', color: 'white', padding: '1px 6px', borderRadius: '99px', fontSize: '0.7rem' }}>{orders.length}</span>}
+              </div>
+            </button>
+
+            <button onClick={() => setActiveTab('finances')} style={sidebarBtnStyle(activeTab === 'finances')}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                  Finances & P&L
+                </div>
+                <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: 'bold' }}>P&L</span>
+              </div>
+            </button>
+
+            <button onClick={() => setActiveTab('products')} style={sidebarBtnStyle(activeTab === 'products')}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                Products
+              </div>
+            </button>
+
+            <button onClick={() => setActiveTab('categories')} style={sidebarBtnStyle(activeTab === 'categories')}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h7" /></svg>
+                Categories
+              </div>
+            </button>
+
+            <button onClick={() => setActiveTab('store')} style={sidebarBtnStyle(activeTab === 'store')}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                Store Settings
+              </div>
+            </button>
+
+            <button onClick={() => setActiveTab('security')} style={sidebarBtnStyle(activeTab === 'security')}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                Security & Password
+              </div>
+            </button>
+
+          </nav>
+          <div style={{ padding: '14px 8px', borderTop: '1px solid #1f2937' }}>
+            <button onClick={handleLogout} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', borderRadius: '6px', color: '#f87171', fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.2s', border: 'none', cursor: 'pointer', backgroundColor: 'transparent' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              Logout
+            </button>
+          </div>
+        </aside>
+
+        {/* Main Content Workspace (Wide, Compact 16px 20px padding) */}
+        <main className="admin-main" style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', minWidth: 0, width: '100%', boxSizing: 'border-box' }}>
+          {/* ===== ORDERS TAB ===== */}
         {activeTab === 'orders' && (
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '20px', color: '#111827' }}>Recent Orders</h2>
@@ -2196,6 +2492,7 @@ export default function AdminDashboard() {
         )}
 
       </main>
+      </div>
 
       {/* ==================== FLOATING ADMIN AI CHAT SYSTEM ==================== */}
       {!isAiChatOpen && (
