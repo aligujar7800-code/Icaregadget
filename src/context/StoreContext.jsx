@@ -62,6 +62,15 @@ export const StoreProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [expenses, setExpenses] = useState(() => {
+    try {
+      const saved = localStorage.getItem('expenses');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
   // Sync to localStorage as offline cache
   useEffect(() => { try { localStorage.setItem('user', JSON.stringify(user)); } catch(e){} }, [user]);
   useEffect(() => { try { localStorage.setItem('registeredCustomers', JSON.stringify(registeredCustomers)); } catch(e){} }, [registeredCustomers]);
@@ -76,11 +85,12 @@ export const StoreProvider = ({ children }) => {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [prodRes, catRes, orderRes, storeRes] = await Promise.all([
+        const [prodRes, catRes, orderRes, storeRes, expRes] = await Promise.all([
           fetch('/api/products').catch(() => null),
           fetch('/api/categories').catch(() => null),
           fetch('/api/orders').catch(() => null),
-          fetch('/api/store-details').catch(() => null)
+          fetch('/api/store-details').catch(() => null),
+          fetch('/api/expenses').catch(() => null)
         ]);
 
         if (prodRes && prodRes.ok) {
@@ -105,6 +115,12 @@ export const StoreProvider = ({ children }) => {
           const storeData = await storeRes.json();
           if (storeData && storeData.address) {
             setStoreDetails(storeData);
+          }
+        }
+        if (expRes && expRes.ok) {
+          const expData = await expRes.json();
+          if (Array.isArray(expData)) {
+            setExpenses(expData);
           }
         }
       } catch (err) {
