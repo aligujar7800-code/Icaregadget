@@ -819,16 +819,16 @@ export default function AdminDashboard() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                background: profileMenuOpen ? '#374151' : '#1f2937',
-                border: '1px solid #4b5563',
+                background: profileMenuOpen ? '#1a1a1a' : '#000000',
+                border: '1px solid #2a2a2a',
                 borderRadius: '999px',
                 padding: '3px 10px 3px 3px',
                 cursor: 'pointer',
                 color: '#ffffff',
                 transition: 'all 0.15s ease'
               }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = '#9ca3af'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = '#4b5563'}
+              onMouseEnter={e => e.currentTarget.style.borderColor = '#52525b'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = '#2a2a2a'}
             >
               <div style={{
                 width: '28px',
@@ -858,17 +858,17 @@ export default function AdminDashboard() {
                 top: '40px',
                 right: '0',
                 width: '220px',
-                backgroundColor: '#ffffff',
-                color: '#1f2937',
+                backgroundColor: '#000000',
+                color: '#ffffff',
                 borderRadius: '8px',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                border: '1px solid #e5e7eb',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+                border: '1px solid #262626',
                 padding: '6px 0',
                 zIndex: 100
               }}>
-                <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>Store Administrator</div>
-                  <div style={{ fontSize: '11px', color: '#6b7280' }}>{user?.email || 'admin@icaregadget.store'}</div>
+                <div style={{ padding: '10px 16px', borderBottom: '1px solid #1f1f1f' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>Store Administrator</div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>{user?.email || 'admin@icaregadget.store'}</div>
                 </div>
                 
                 <button
@@ -881,13 +881,14 @@ export default function AdminDashboard() {
                     background: 'none',
                     border: 'none',
                     fontSize: '12px',
-                    color: '#374151',
+                    color: '#e5e7eb',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px'
+                    gap: '8px',
+                    transition: 'background-color 0.15s ease'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#171717'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                   Store Settings
@@ -903,19 +904,20 @@ export default function AdminDashboard() {
                     background: 'none',
                     border: 'none',
                     fontSize: '12px',
-                    color: '#374151',
+                    color: '#e5e7eb',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px'
+                    gap: '8px',
+                    transition: 'background-color 0.15s ease'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#171717'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                   Password & Security
                 </button>
 
-                <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '4px 0' }} />
+                <div style={{ height: '1px', backgroundColor: '#1f1f1f', margin: '4px 0' }} />
 
                 <button
                   type="button"
@@ -932,9 +934,10 @@ export default function AdminDashboard() {
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px'
+                    gap: '8px',
+                    transition: 'background-color 0.15s ease'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.15)'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                   Logout
@@ -2823,13 +2826,14 @@ export default function AdminDashboard() {
           <div
             style={{
               padding: '14px 18px',
-              backgroundColor: '#111827',
+              backgroundColor: '#000000',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               borderTopLeftRadius: '16px',
-              borderTopRightRadius: '16px'
+              borderTopRightRadius: '16px',
+              borderBottom: '1px solid #1f1f1f'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
