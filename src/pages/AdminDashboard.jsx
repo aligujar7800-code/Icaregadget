@@ -29,6 +29,37 @@ export default function AdminDashboard() {
   // Products table filter
   const [filterCategory, setFilterCategory] = useState('All');
 
+  // Order Courier & Tracking Modal State
+  const [editingTrackingOrder, setEditingTrackingOrder] = useState(null);
+  const [courierInput, setCourierInput] = useState('PostEx');
+  const [trackingNumInput, setTrackingNumInput] = useState('');
+  const [isSavingTracking, setIsSavingTracking] = useState(false);
+
+  const openTrackingModal = (order) => {
+    setEditingTrackingOrder(order);
+    setCourierInput(order.courier || 'PostEx');
+    setTrackingNumInput(order.trackingNumber || '');
+  };
+
+  const handleSaveTracking = async (e) => {
+    if (e) e.preventDefault();
+    if (!editingTrackingOrder) return;
+    setIsSavingTracking(true);
+    try {
+      await updateOrderStatus(
+        editingTrackingOrder.id,
+        editingTrackingOrder.status || 'Shipped',
+        courierInput,
+        trackingNumInput.trim()
+      );
+      setEditingTrackingOrder(null);
+    } catch (err) {
+      console.error('Failed to update tracking:', err);
+    } finally {
+      setIsSavingTracking(false);
+    }
+  };
+
   // Store details form state
   const [address, setAddress] = useState(storeDetails.address);
   const [hours, setHours] = useState(storeDetails.hours);
