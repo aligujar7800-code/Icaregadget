@@ -49,6 +49,23 @@ export default function AdminDashboard() {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [profileMenuOpen]);
 
+  // Orders status tabs, search & filters state
+  const [orderStatusTab, setOrderStatusTab] = useState('All');
+  const [orderSearchText, setOrderSearchText] = useState('');
+  const [orderCustomerFilter, setOrderCustomerFilter] = useState('');
+  const [orderPhoneFilter, setOrderPhoneFilter] = useState('');
+  const [orderFromDate, setOrderFromDate] = useState('');
+  const [orderToDate, setOrderToDate] = useState('');
+
+  const resetOrderFilters = () => {
+    setOrderStatusTab('All');
+    setOrderSearchText('');
+    setOrderCustomerFilter('');
+    setOrderPhoneFilter('');
+    setOrderFromDate('');
+    setOrderToDate('');
+  };
+
   // Product form state
   const [editingId, setEditingId] = useState(null);
   const [costPrice, setCostPrice] = useState('');
@@ -281,7 +298,7 @@ export default function AdminDashboard() {
     if (aiLoading) return;
 
     // Immediately display the user's spoken or typed words in chat
-    const displayMsg = text || (audioBase64 ? "🎙️ Transcribing voice command..." : "");
+    const displayMsg = text || (audioBase64 ? "Transcribing voice command..." : "");
     const updated = [...aiMessages, { role: 'user', content: displayMsg }];
     setAiMessages(updated);
     setAiInput('');
@@ -301,7 +318,7 @@ export default function AdminDashboard() {
       const reply = data.reply || "I'm having a brief connection issue. Please try again.";
 
       // Replace the temporary transcription placeholder with the real transcribed text
-      const finalUserText = data.userText || text || "🎙️ [Voice Command]";
+      const finalUserText = data.userText || text || "[Voice Command]";
       setAiMessages([
         ...aiMessages,
         { role: 'user', content: finalUserText },
@@ -312,7 +329,7 @@ export default function AdminDashboard() {
         playAiVoice(data.audio);
       }
     } catch (err) {
-      const finalUserText = text || "🎙️ [Voice Command]";
+      const finalUserText = text || "[Voice Command]";
       setAiMessages([
         ...aiMessages,
         { role: 'user', content: finalUserText },
@@ -720,8 +737,8 @@ export default function AdminDashboard() {
     navigate('/login');
   };
 
-  const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box', fontFamily: 'inherit', fontSize: '0.9375rem' };
-  const labelStyle = { display: 'block', fontWeight: '600', fontSize: '0.875rem', marginBottom: '8px', color: '#374151' };
+  const inputStyle = { width: '100%', padding: '6px 10px', borderRadius: '5px', border: '1px solid #d1d5db', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box', fontFamily: 'inherit', fontSize: '0.8125rem' };
+  const labelStyle = { display: 'block', fontWeight: '600', fontSize: '0.75rem', marginBottom: '4px', color: '#374151' };
   const focusHandler = (e) => e.target.style.borderColor = 'var(--orange)';
   const blurHandler = (e) => e.target.style.borderColor = '#d1d5db';
 
@@ -816,7 +833,7 @@ export default function AdminDashboard() {
             onMouseEnter={e => !isAiChatOpen && (e.currentTarget.style.backgroundColor = '#374151')}
             onMouseLeave={e => !isAiChatOpen && (e.currentTarget.style.backgroundColor = '#1f2937')}
           >
-            <span>🤖 AI Advisor</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg> <span>AI Advisor</span>
           </button>
 
           {/* View Live Storefront */}
@@ -928,7 +945,7 @@ export default function AdminDashboard() {
                   onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  ⚙️ Store Settings
+                  Store Settings
                 </button>
 
                 <button
@@ -950,7 +967,7 @@ export default function AdminDashboard() {
                   onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  🔒 Password & Security
+                  Password & Security
                 </button>
 
                 <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '4px 0' }} />
@@ -975,7 +992,7 @@ export default function AdminDashboard() {
                   onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  🚪 Logout
+                  Logout
                 </button>
               </div>
             )}
@@ -989,88 +1006,182 @@ export default function AdminDashboard() {
         <aside
           className="admin-sidebar"
           style={{
-            width: sidebarOpen ? '230px' : '0px',
-            opacity: sidebarOpen ? 1 : 0,
+            width: sidebarOpen ? '200px' : '56px',
             overflow: 'hidden',
-            transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease',
+            transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             backgroundColor: '#111827',
             color: 'white',
             display: 'flex',
             flexDirection: 'column',
             flexShrink: 0,
-            borderRight: sidebarOpen ? '1px solid #1f2937' : 'none',
+            borderRight: '1px solid #1f2937',
             whiteSpace: 'nowrap'
           }}
         >
-          <div style={{ padding: '14px 14px', borderBottom: '1px solid #1f2937', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Navigation</span>
+          {/* Header with < or > button */}
+          <div style={{
+            height: '42px',
+            borderBottom: '1px solid #1f2937',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: sidebarOpen ? 'space-between' : 'center',
+            padding: sidebarOpen ? '0 12px' : '0'
+          }}>
+            {sidebarOpen && (
+              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                Navigation
+              </span>
+            )}
             <button 
               type="button" 
               onClick={toggleSidebar} 
-              title="Collapse sidebar"
-              style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
+              title={sidebarOpen ? "Collapse sidebar (<)" : "Expand sidebar (>)"}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#9ca3af',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '4px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                lineHeight: 1
+              }}
               onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
               onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              {sidebarOpen ? '<' : '>'}
             </button>
           </div>
 
-          <nav style={{ flex: 1, padding: '14px 8px', display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto' }}>
+          <nav style={{ flex: 1, padding: '10px 6px', display: 'flex', flexDirection: 'column', gap: '3px', overflowY: 'auto' }}>
             
-            <button onClick={() => setActiveTab('orders')} style={sidebarBtnStyle(activeTab === 'orders')}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between' }}>
+            <button 
+              onClick={() => setActiveTab('orders')} 
+              title="Customer Orders"
+              style={{
+                ...sidebarBtnStyle(activeTab === 'orders'),
+                padding: sidebarOpen ? '8px 12px' : '8px 0',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: sidebarOpen ? 'space-between' : 'center', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
-                  Customer Orders
+                  {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Customer Orders</span>}
                 </div>
-                {orders.length > 0 && <span style={{ backgroundColor: 'var(--orange, #ea580c)', color: 'white', padding: '1px 6px', borderRadius: '99px', fontSize: '0.7rem' }}>{orders.length}</span>}
+                {sidebarOpen && orders.length > 0 && <span style={{ backgroundColor: 'var(--orange, #ea580c)', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem' }}>{orders.length}</span>}
               </div>
             </button>
 
-            <button onClick={() => setActiveTab('finances')} style={sidebarBtnStyle(activeTab === 'finances')}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between' }}>
+            <button 
+              onClick={() => setActiveTab('finances')} 
+              title="Finances & P&L"
+              style={{
+                ...sidebarBtnStyle(activeTab === 'finances'),
+                padding: sidebarOpen ? '8px 12px' : '8px 0',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: sidebarOpen ? 'space-between' : 'center', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
-                  Finances & P&L
+                  {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Finances & P&L</span>}
                 </div>
-                <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: 'bold' }}>P&L</span>
+                {sidebarOpen && <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: 'bold' }}>P&L</span>}
               </div>
             </button>
 
-            <button onClick={() => setActiveTab('products')} style={sidebarBtnStyle(activeTab === 'products')}>
+            <button 
+              onClick={() => setActiveTab('products')} 
+              title="Products"
+              style={{
+                ...sidebarBtnStyle(activeTab === 'products'),
+                padding: sidebarOpen ? '8px 12px' : '8px 0',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                Products
+                {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Products</span>}
               </div>
             </button>
 
-            <button onClick={() => setActiveTab('categories')} style={sidebarBtnStyle(activeTab === 'categories')}>
+            <button 
+              onClick={() => setActiveTab('categories')} 
+              title="Categories"
+              style={{
+                ...sidebarBtnStyle(activeTab === 'categories'),
+                padding: sidebarOpen ? '8px 12px' : '8px 0',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h7" /></svg>
-                Categories
+                {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Categories</span>}
               </div>
             </button>
 
-            <button onClick={() => setActiveTab('store')} style={sidebarBtnStyle(activeTab === 'store')}>
+            <button 
+              onClick={() => setActiveTab('store')} 
+              title="Store Settings"
+              style={{
+                ...sidebarBtnStyle(activeTab === 'store'),
+                padding: sidebarOpen ? '8px 12px' : '8px 0',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                Store Settings
+                {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Store Settings</span>}
               </div>
             </button>
 
-            <button onClick={() => setActiveTab('security')} style={sidebarBtnStyle(activeTab === 'security')}>
+            <button 
+              onClick={() => setActiveTab('security')} 
+              title="Security & Password"
+              style={{
+                ...sidebarBtnStyle(activeTab === 'security'),
+                padding: sidebarOpen ? '8px 12px' : '8px 0',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center'
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                Security & Password
+                {sidebarOpen && <span style={{ fontSize: '12.5px' }}>Security & Password</span>}
               </div>
             </button>
 
           </nav>
-          <div style={{ padding: '14px 8px', borderTop: '1px solid #1f2937' }}>
-            <button onClick={handleLogout} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', borderRadius: '6px', color: '#f87171', fontWeight: '500', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.2s', border: 'none', cursor: 'pointer', backgroundColor: 'transparent' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+          <div style={{ padding: '10px 6px', borderTop: '1px solid #1f2937' }}>
+            <button 
+              onClick={handleLogout} 
+              title="Logout"
+              style={{ 
+                width: '100%', 
+                textAlign: sidebarOpen ? 'left' : 'center', 
+                padding: sidebarOpen ? '8px 12px' : '8px 0', 
+                borderRadius: '6px', 
+                color: '#f87171', 
+                fontWeight: '500', 
+                fontSize: '12.5px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                gap: '10px', 
+                transition: 'background 0.2s', 
+                border: 'none', 
+                cursor: 'pointer', 
+                backgroundColor: 'transparent' 
+              }} 
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)'} 
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              Logout
+              {sidebarOpen && <span>Logout</span>}
             </button>
           </div>
         </aside>
@@ -1078,167 +1189,297 @@ export default function AdminDashboard() {
         {/* Main Content Workspace (Wide, Compact 16px 20px padding) */}
         <main className="admin-main" style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', minWidth: 0, width: '100%', boxSizing: 'border-box' }}>
           {/* ===== ORDERS TAB ===== */}
-        {activeTab === 'orders' && (
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '20px', color: '#111827' }}>Recent Orders</h2>
-            {orders.length === 0 ? (
-              <div style={{ padding: '40px 0', textAlign: 'center', color: '#6b7280' }}>No orders have been placed yet.</div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Order ID</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Customer</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Product</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Total</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Date</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Order Status (Click to Change)</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Courier & Tracking (CN #)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.slice().reverse().map(order => (
-                      <tr key={order.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                        <td style={{ padding: '16px', fontWeight: '500', color: '#111827' }}>#{order.id.toString().slice(-6)}</td>
-                        <td style={{ padding: '16px', color: '#4b5563' }}>
-                          <div style={{ fontWeight: '600', color: '#111827' }}>{order.userName}</div>
-                          {order.phone && <div style={{ fontSize: '0.78rem', color: '#6b7280' }}>📞 {order.phone}</div>}
-                        </td>
-                        <td style={{ padding: '16px', color: '#4b5563', maxWidth: '240px' }}>{order.productName}</td>
-                        <td style={{ padding: '16px', fontWeight: '600', color: '#111827' }}>{order.price}</td>
-                        <td style={{ padding: '16px', color: '#6b7280', fontSize: '0.875rem' }}>{order.date}</td>
-                        <td style={{ padding: '16px' }}>
-                          <select
-                            value={order.status || 'Pending'}
-                            onChange={(e) => {
-                              const newSt = e.target.value;
-                              updateOrderStatus(order.id, newSt);
-                              if (newSt === 'Shipped' && !order.trackingNumber) {
-                                openTrackingModal({ ...order, status: newSt });
-                              }
-                            }}
-                            style={{
-                              padding: '5px 12px',
-                              borderRadius: '20px',
-                              fontSize: '0.78rem',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              outline: 'none',
-                              border: '1px solid ' + (
-                                order.status === 'Delivered' ? '#bbf7d0' :
-                                order.status === 'Processing' ? '#bae6fd' :
-                                order.status === 'Shipped' ? '#e9d5ff' :
-                                order.status === 'Cancelled' ? '#fca5a5' : '#fde68a'
-                              ),
-                              backgroundColor: 
-                                order.status === 'Delivered' ? '#dcfce7' :
-                                order.status === 'Processing' ? '#e0f2fe' :
-                                order.status === 'Shipped' ? '#f3e8ff' :
-                                order.status === 'Cancelled' ? '#fee2e2' : '#fef3c7',
-                              color: 
-                                order.status === 'Delivered' ? '#15803d' :
-                                order.status === 'Processing' ? '#0369a1' :
-                                order.status === 'Shipped' ? '#7e22ce' :
-                                order.status === 'Cancelled' ? '#b91c1c' : '#b45309',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
-                            }}
-                          >
-                            <option value="Pending">🟡 Pending</option>
-                            <option value="Processing">🔵 Processing</option>
-                            <option value="Shipped">🟣 Shipped</option>
-                            <option value="Delivered">🟢 Delivered</option>
-                            <option value="Cancelled">🔴 Cancelled</option>
-                          </select>
-                        </td>
-                        <td style={{ padding: '16px' }}>
-                          {order.trackingNumber ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span style={{
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                fontSize: '0.75rem',
-                                fontWeight: '700',
-                                backgroundColor: getCourierBrandStyle(order.courier).bg,
-                                border: `1px solid ${getCourierBrandStyle(order.courier).border}`,
-                                color: getCourierBrandStyle(order.courier).text,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}>
-                                {getCourierBrandStyle(order.courier).icon} {order.courier || 'Courier'}: {order.trackingNumber}
-                              </span>
-                              {getCourierTrackingUrl(order.courier, order.trackingNumber) && (
-                                <a
-                                  href={getCourierTrackingUrl(order.courier, order.trackingNumber)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title="Test live on courier portal"
-                                  style={{
-                                    padding: '3px 7px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#f1f5f9',
-                                    color: '#334155',
-                                    fontSize: '0.75rem',
-                                    textDecoration: 'none',
-                                    fontWeight: '600'
-                                  }}
-                                >
-                                  Track ↗
-                                </a>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => openTrackingModal(order)}
-                                title="Edit Tracking Number"
-                                style={{
-                                  border: 'none',
-                                  background: 'none',
-                                  cursor: 'pointer',
-                                  color: '#64748b',
-                                  fontSize: '0.85rem',
-                                  padding: '2px 4px'
-                                }}
-                              >
-                                ✏️
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => openTrackingModal(order)}
+        {activeTab === 'orders' && (() => {
+          const statusCounts = {
+            All: orders.length,
+            Pending: orders.filter(o => (o.status || 'Pending').toLowerCase() === 'pending').length,
+            Processing: orders.filter(o => (o.status || '').toLowerCase() === 'processing').length,
+            Shipped: orders.filter(o => (o.status || '').toLowerCase() === 'shipped').length,
+            Delivered: orders.filter(o => (o.status || '').toLowerCase() === 'delivered').length,
+            Cancelled: orders.filter(o => (o.status || '').toLowerCase() === 'cancelled').length
+          };
+
+          const filteredOrders = orders.slice().reverse().filter(order => {
+            if (orderStatusTab !== 'All') {
+              if ((order.status || 'Pending').toLowerCase() !== orderStatusTab.toLowerCase()) {
+                return false;
+              }
+            }
+            if (orderSearchText.trim()) {
+              const q = orderSearchText.trim().toLowerCase().replace('#', '');
+              const idStr = String(order.id).toLowerCase();
+              const nameStr = (order.userName || '').toLowerCase();
+              const phoneStr = (order.phone || '').toLowerCase();
+              const prodStr = (order.productName || '').toLowerCase();
+              if (!idStr.includes(q) && !nameStr.includes(q) && !phoneStr.includes(q) && !prodStr.includes(q)) {
+                return false;
+              }
+            }
+            if (orderCustomerFilter.trim()) {
+              const cName = orderCustomerFilter.trim().toLowerCase();
+              if (!(order.userName || '').toLowerCase().includes(cName)) {
+                return false;
+              }
+            }
+            if (orderPhoneFilter.trim()) {
+              const cPhone = orderPhoneFilter.trim().toLowerCase();
+              if (!(order.phone || '').toLowerCase().includes(cPhone)) {
+                return false;
+              }
+            }
+            if (orderFromDate) {
+              if (new Date(order.date) < new Date(orderFromDate)) return false;
+            }
+            if (orderToDate) {
+              if (new Date(order.date) > new Date(orderToDate + 'T23:59:59')) return false;
+            }
+            return true;
+          });
+
+          return (
+            <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '14px 16px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              
+              {/* Header Title & Counter */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ fontSize: '14px', fontWeight: 'bold', margin: 0, color: '#111827' }}>Recent Orders</h2>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                  Showing {filteredOrders.length} of {orders.length} orders
+                </div>
+              </div>
+
+              {/* Status Tabs with live counts */}
+              <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid #f1f5f9' }}>
+                {[
+                  { key: 'All', label: 'All', count: statusCounts.All },
+                  { key: 'Pending', label: 'Pending', count: statusCounts.Pending },
+                  { key: 'Processing', label: 'Processing', count: statusCounts.Processing },
+                  { key: 'Shipped', label: 'Shipped', count: statusCounts.Shipped },
+                  { key: 'Delivered', label: 'Delivered', count: statusCounts.Delivered },
+                  { key: 'Cancelled', label: 'Cancelled', count: statusCounts.Cancelled }
+                ].map(tab => {
+                  const isActive = orderStatusTab.toLowerCase() === tab.key.toLowerCase();
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setOrderStatusTab(tab.key)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid ' + (isActive ? '#ea580c' : '#e5e7eb'),
+                        backgroundColor: isActive ? '#ffedd5' : '#ffffff',
+                        color: isActive ? '#ea580c' : '#4b5563',
+                        fontSize: '11.5px',
+                        fontWeight: isActive ? 700 : 500,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>{tab.label}</span>
+                      <span style={{
+                        backgroundColor: isActive ? '#ea580c' : '#f1f5f9',
+                        color: isActive ? '#ffffff' : '#64748b',
+                        padding: '1px 5px',
+                        borderRadius: '999px',
+                        fontSize: '10px',
+                        fontWeight: 700
+                      }}>
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Comprehensive Filter Toolbar */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr)) 70px', gap: '8px', alignItems: 'center', backgroundColor: '#f8fafc', padding: '8px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <input
+                  type="text"
+                  value={orderSearchText}
+                  onChange={e => setOrderSearchText(e.target.value)}
+                  placeholder="Search ID, item..."
+                  style={{ height: '28px', padding: '0 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1', outline: 'none' }}
+                />
+                <input
+                  type="text"
+                  value={orderCustomerFilter}
+                  onChange={e => setOrderCustomerFilter(e.target.value)}
+                  placeholder="Customer name..."
+                  style={{ height: '28px', padding: '0 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1', outline: 'none' }}
+                />
+                <input
+                  type="text"
+                  value={orderPhoneFilter}
+                  onChange={e => setOrderPhoneFilter(e.target.value)}
+                  placeholder="Phone number..."
+                  style={{ height: '28px', padding: '0 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1', outline: 'none' }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>From:</span>
+                  <input
+                    type="date"
+                    value={orderFromDate}
+                    onChange={e => setOrderFromDate(e.target.value)}
+                    style={{ height: '28px', padding: '0 4px', fontSize: '10.5px', borderRadius: '4px', border: '1px solid #cbd5e1', outline: 'none', width: '100%' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>To:</span>
+                  <input
+                    type="date"
+                    value={orderToDate}
+                    onChange={e => setOrderToDate(e.target.value)}
+                    style={{ height: '28px', padding: '0 4px', fontSize: '10.5px', borderRadius: '4px', border: '1px solid #cbd5e1', outline: 'none', width: '100%' }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={resetOrderFilters}
+                  style={{ height: '28px', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                  title="Reset all filters"
+                >
+                  Reset
+                </button>
+              </div>
+
+              {/* Table */}
+              {filteredOrders.length === 0 ? (
+                <div style={{ padding: '30px 0', textAlign: 'center', color: '#6b7280', fontSize: '12px' }}>
+                  No orders match your filter criteria.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11.5px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #e5e7eb', backgroundColor: '#f8fafc' }}>
+                        <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Order ID</th>
+                        <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Customer</th>
+                        <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Product</th>
+                        <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Total</th>
+                        <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Date</th>
+                        <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Order Status</th>
+                        <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Courier & Tracking (CN #)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredOrders.map(order => (
+                        <tr key={order.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: '8px 10px', fontWeight: '600', color: '#111827' }}>#{order.id.toString().slice(-6)}</td>
+                          <td style={{ padding: '8px 10px', color: '#4b5563' }}>
+                            <div style={{ fontWeight: '600', color: '#111827', fontSize: '12px' }}>{order.userName}</div>
+                            {order.phone && <div style={{ fontSize: '11px', color: '#64748b' }}>{order.phone}</div>}
+                          </td>
+                          <td style={{ padding: '8px 10px', color: '#374151', maxWidth: '240px', fontSize: '11.5px' }}>{order.productName}</td>
+                          <td style={{ padding: '8px 10px', fontWeight: '700', color: '#111827', fontSize: '12px' }}>{order.price}</td>
+                          <td style={{ padding: '8px 10px', color: '#64748b', fontSize: '11px', whiteSpace: 'nowrap' }}>{order.date}</td>
+                          <td style={{ padding: '8px 10px' }}>
+                            {/* Single Orange Status Button with Solid Black Text */}
+                            <select
+                              value={order.status || 'Pending'}
+                              onChange={(e) => {
+                                const newSt = e.target.value;
+                                updateOrderStatus(order.id, newSt);
+                                if (newSt === 'Shipped' && !order.trackingNumber) {
+                                  openTrackingModal({ ...order, status: newSt });
+                                }
+                              }}
                               style={{
-                                padding: '5px 10px',
-                                borderRadius: '6px',
-                                border: '1px dashed #cbd5e1',
-                                backgroundColor: '#f8fafc',
-                                color: '#475569',
-                                fontSize: '0.75rem',
+                                padding: '4px 8px',
+                                borderRadius: '5px',
+                                fontSize: '11.5px',
                                 fontWeight: '600',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                outline: 'none',
+                                border: '1px solid #ea580c',
+                                backgroundColor: '#fed7aa',
+                                color: '#111827',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
                               }}
                             >
-                              + Add Courier / CN #
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                              <option value="Pending">Pending</option>
+                              <option value="Processing">Processing</option>
+                              <option value="Shipped">Shipped</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {order.trackingNumber ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ 
+                                    padding: '3px 8px', 
+                                    borderRadius: '4px', 
+                                    fontSize: '11px', 
+                                    fontWeight: '700',
+                                    border: '1px solid ' + getCourierBrandStyle(order.courier).border,
+                                    backgroundColor: getCourierBrandStyle(order.courier).bg,
+                                    color: getCourierBrandStyle(order.courier).color
+                                  }}>
+                                    {order.courier || 'Courier'}: {order.trackingNumber}
+                                  </span>
+                                  {getCourierTrackingUrl(order.courier, order.trackingNumber) && (
+                                    <a
+                                      href={getCourierTrackingUrl(order.courier, order.trackingNumber)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title="Track live with courier"
+                                      style={{ color: '#0284c7', display: 'flex', alignItems: 'center' }}
+                                    >
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                                    </a>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => openTrackingModal(order)}
+                                    title="Edit Courier or Tracking #"
+                                    style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '2px', fontSize: '11px' }}
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openTrackingModal(order)}
+                                  style={{
+                                    padding: '4px 8px',
+                                    borderRadius: '5px',
+                                    fontSize: '11px',
+                                    fontWeight: '600',
+                                    border: '1px dashed #cbd5e1',
+                                    backgroundColor: '#f8fafc',
+                                    color: '#475569',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  + Add Courier / CN #
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ===== PRODUCTS TAB ===== */}
         {activeTab === 'products' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '14px' }}>
             
             {/* Products Table */}
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '14px 16px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>All Products ({filteredProducts.length})</h2>
+                <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#111827', margin: 0 }}>All Products ({filteredProducts.length})</h2>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {['All', 'Mobiles', 'Audio', 'Accessories', 'Smart Home', 'Wearables'].map(cat => (
                     <button
@@ -1260,17 +1501,17 @@ export default function AdminDashboard() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white' }}>
                     <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Product</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Category</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Price & Cost</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Margin</th>
-                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.8125rem' }}>Action</th>
+                      <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Product</th>
+                      <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Category</th>
+                      <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Price & Cost</th>
+                      <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Margin</th>
+                      <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredProducts.slice().reverse().map(product => (
                       <tr key={product.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                        <td style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <td style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#f3f4f6', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             {product.image ? (
                               <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1280,19 +1521,19 @@ export default function AdminDashboard() {
                           </div>
                           <span style={{ fontWeight: '500', color: '#111827', fontSize: '0.875rem' }}>{product.name}</span>
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
+                        <td style={{ padding: '8px 10px' }}>
                           <span style={{ fontSize: '0.8125rem', color: '#4b5563' }}>{product.category}</span>
                           {product.subCategory && (
                             <span style={{ display: 'block', fontSize: '0.75rem', color: '#9ca3af' }}>{product.subCategory}</span>
                           )}
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
+                        <td style={{ padding: '8px 10px' }}>
                           <div style={{ color: '#111827', fontWeight: '600', fontSize: '0.875rem' }}>{product.price}</div>
                           <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
                             Cost: PKR {(parseInt(String(product.costPrice || '0').replace(/[^0-9]/g, ''), 10) || 0).toLocaleString()}
                           </div>
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
+                        <td style={{ padding: '8px 10px' }}>
                           {(() => {
                             const sp = parseInt(String(product.price || '0').replace(/[^0-9]/g, ''), 10) || 0;
                             const cp = parseInt(String(product.costPrice || '0').replace(/[^0-9]/g, ''), 10) || 0;
@@ -1314,7 +1555,7 @@ export default function AdminDashboard() {
                             return <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>—</span>;
                           })()}
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
+                        <td style={{ padding: '8px 10px' }}>
                           <div style={{ display: 'flex', gap: '12px' }}>
                             <button onClick={() => handleEditClick(product)} style={{ border: 'none', background: 'none', color: '#3b82f6', fontWeight: '600', cursor: 'pointer', fontSize: '0.875rem' }}>Edit</button>
                             <button onClick={() => handleDeleteClick(product.id)} style={{ border: 'none', background: 'none', color: '#ef4444', fontWeight: '600', cursor: 'pointer', fontSize: '0.875rem' }}>Delete</button>
@@ -1328,9 +1569,9 @@ export default function AdminDashboard() {
             </div>
 
             {/* Add/Edit Product Form */}
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', height: 'fit-content' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '14px 16px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)', height: 'fit-content' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>
+                <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#111827', margin: 0 }}>
                   {editingId ? 'Edit Product' : 'Add New Product'}
                 </h2>
                 {editingId && (
@@ -1419,8 +1660,8 @@ export default function AdminDashboard() {
                         justifyContent: 'space-between',
                         alignItems: 'center'
                       }}>
-                        <span>📈 Unit Profit: <strong>PKR {profit.toLocaleString()}</strong></span>
-                        <span>📊 Gross Margin: <strong>{margin}%</strong></span>
+                        <span>Unit Profit: <strong>PKR {profit.toLocaleString()}</strong></span>
+                        <span>Gross Margin: <strong>{margin}%</strong></span>
                       </div>
                     );
                   }
@@ -1566,7 +1807,7 @@ export default function AdminDashboard() {
 
         {/* ===== STORE SETTINGS TAB ===== */}
         {activeTab === 'store' && (
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', maxWidth: '600px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '16px 20px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)', maxWidth: '600px' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '8px', color: '#111827' }}>Update Store Details</h2>
             <p style={{ color: '#6b7280', marginBottom: '32px', fontSize: '0.875rem' }}>These details appear in the "Visit the shop" section and Footer across the website.</p>
             
@@ -1862,7 +2103,7 @@ export default function AdminDashboard() {
                   </button>
                 </div>
                 <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '6px 0 0', lineHeight: '1.4' }}>
-                  💡 Cloudflare sends an email verification link to that address. Once you click that link, you can activate it below.
+                  Cloudflare sends an email verification link to that address. Once you click that link, you can activate it below.
                 </p>
               </form>
 
@@ -2013,11 +2254,11 @@ export default function AdminDashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
               
               {/* 1. Delivered Sales */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Delivered Revenue (Cash)
                 </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#15803d', marginTop: '6px' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#111827', marginTop: '4px' }}>
                   PKR {(accountingSummary?.deliveredRevenue || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
@@ -2026,11 +2267,11 @@ export default function AdminDashboard() {
               </div>
 
               {/* 2. Total COGS */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Delivered COGS (Cost)
                 </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0369a1', marginTop: '6px' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#111827', marginTop: '4px' }}>
                   PKR {(accountingSummary?.deliveredCOGS || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
@@ -2039,24 +2280,24 @@ export default function AdminDashboard() {
               </div>
 
               {/* 3. Gross Profit */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Gross Profit (Margin)
                 </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#7e22ce', marginTop: '6px' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#111827', marginTop: '4px' }}>
                   PKR {(accountingSummary?.grossProfit || 0).toLocaleString()}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#7e22ce', fontWeight: '700', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.75rem', color: '#475569', fontWeight: '600', marginTop: '4px' }}>
                   {accountingSummary?.grossMarginPercent || 0}% Gross Margin
                 </div>
               </div>
 
               {/* 4. Total Operating Expenses */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Operating Expenses
                 </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#b91c1c', marginTop: '6px' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#111827', marginTop: '4px' }}>
                   PKR {(accountingSummary?.totalExpenses || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
@@ -2065,11 +2306,11 @@ export default function AdminDashboard() {
               </div>
 
               {/* 5. Net Bottom-Line Profit */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '2px solid ' + ((accountingSummary?.netProfit || 0) >= 0 ? '#10b981' : '#ef4444'), boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: '700', color: (accountingSummary?.netProfit || 0) >= 0 ? '#15803d' : '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Net Operational Profit
                 </div>
-                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: (accountingSummary?.netProfit || 0) >= 0 ? '#15803d' : '#b91c1c', marginTop: '6px' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#111827', marginTop: '4px' }}>
                   PKR {(accountingSummary?.netProfit || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
@@ -2149,7 +2390,7 @@ export default function AdminDashboard() {
                                 </span>
                               </td>
                               <td style={{ padding: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
-                                {exp.paidFrom === 'Bank Account' ? '🏦 Bank' : '💵 Cash'}
+                                {exp.paidFrom === 'Bank Account' ? 'Bank' : 'Cash'}
                               </td>
                               <td style={{ padding: '12px', color: '#475569', maxWidth: '180px' }}>
                                 {exp.supplierName && <span style={{ fontWeight: '600', color: '#0f172a' }}>{exp.supplierName}: </span>}
@@ -2170,7 +2411,7 @@ export default function AdminDashboard() {
                                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '0.9rem' }}
                                   title="Delete Expense"
                                 >
-                                  🗑️
+                                  Delete
                                 </button>
                               </td>
                             </tr>
@@ -2241,8 +2482,8 @@ export default function AdminDashboard() {
                           onChange={e => setExpensePaidFrom(e.target.value)}
                           style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none' }}
                         >
-                          <option value="Cash in Hand">💵 Cash in Hand</option>
-                          <option value="Bank Account">🏦 Bank Account</option>
+                          <option value="Cash in Hand">Cash in Hand</option>
+                          <option value="Bank Account">Bank Account</option>
                         </select>
                       </div>
                     </div>
@@ -2254,13 +2495,13 @@ export default function AdminDashboard() {
                         onChange={e => setExpenseCategory(e.target.value)}
                         style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none' }}
                       >
-                        <option value="Marketing & Ads">📢 Marketing & Meta/TikTok Ads</option>
-                        <option value="Courier Fees">🚚 Courier Freight & RTO Charges</option>
-                        <option value="Packaging">📦 Packaging Bags & Tape</option>
-                        <option value="Rent & Bills">🏢 Shop Rent, Electricity & Bills</option>
-                        <option value="Supplier Payment">🤝 Supplier Stock Payment</option>
-                        <option value="Salaries">👥 Staff Salaries & Wages</option>
-                        <option value="Other">📝 Miscellaneous / Other</option>
+                        <option value="Marketing & Ads">Marketing & Meta/TikTok Ads</option>
+                        <option value="Courier Fees">Courier Freight & RTO Charges</option>
+                        <option value="Packaging">Packaging Bags & Tape</option>
+                        <option value="Rent & Bills">Shop Rent, Electricity & Bills</option>
+                        <option value="Supplier Payment">Supplier Stock Payment</option>
+                        <option value="Salaries">Staff Salaries & Wages</option>
+                        <option value="Other">Miscellaneous / Other</option>
                       </select>
                     </div>
 
@@ -2356,7 +2597,7 @@ export default function AdminDashboard() {
                               <div style={{ fontWeight: '700', fontSize: '0.85rem', color: '#0f172a' }}>{sup.name}</div>
                               {sup.contact && (
                                 <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: '600' }}>
-                                  📞 {sup.contact}
+                                  {sup.contact}
                                 </div>
                               )}
                             </div>
@@ -2417,7 +2658,7 @@ export default function AdminDashboard() {
                 <div>Order: <strong>#{editingTrackingOrder.id.toString().slice(-6)}</strong></div>
                 <div>Customer: <strong>{editingTrackingOrder.userName}</strong> {editingTrackingOrder.phone ? `(${editingTrackingOrder.phone})` : ''}</div>
                 {editingTrackingOrder.shippingAddress && (
-                  <div style={{ marginTop: '2px', color: '#64748b' }}>📍 {editingTrackingOrder.shippingAddress}</div>
+                  <div style={{ marginTop: '2px', color: '#64748b' }}>{editingTrackingOrder.shippingAddress}</div>
                 )}
               </div>
 
@@ -2456,7 +2697,7 @@ export default function AdminDashboard() {
 
                 {trackingNumInput.trim() && getCourierTrackingUrl(courierInput, trackingNumInput) && (
                   <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 12px', borderRadius: '8px', fontSize: '0.8rem', color: '#166534' }}>
-                    ✓ Customers will have a direct 1-click tracking link to <strong>{courierInput}</strong>!
+                    Customers will have a direct 1-click tracking link to <strong>{courierInput}</strong>!
                   </div>
                 )}
 
@@ -2499,31 +2740,20 @@ export default function AdminDashboard() {
         <button
           type="button"
           onClick={() => setIsAiChatOpen(true)}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            backgroundColor: '#111827',
-            color: '#ffffff',
-            border: '1px solid #374151',
-            borderRadius: '9999px',
-            padding: '12px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
-            cursor: 'pointer',
-            zIndex: 9999,
-            fontWeight: 600,
-            fontSize: '13.5px',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+          className="orange-chat-trigger-btn"
+          style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999 }}
+          title="AI Business Advisor"
+          aria-label="AI Business Advisor"
         >
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-          <span>AI Business Co-Pilot</span>
-          <span style={{ backgroundColor: '#10b981', color: '#ffffff', padding: '1px 6px', borderRadius: '99px', fontSize: '10px', fontWeight: 'bold' }}>LIVE</span>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M20 11.5C20 15.6421 16.4183 19 12 19C10.7424 19 9.55163 18.7291 8.5 18.2435L4 20L5.34208 16.6448C4.50974 15.1764 4 13.4181 4 11.5C4 7.35786 7.58172 4 12 4C16.4183 4 20 7.35786 20 11.5Z"
+              fill="#ffffff"
+            />
+            <circle cx="8.5" cy="11.5" r="1.3" fill="#ea580c" className="chat-dot-1" />
+            <circle cx="12" cy="11.5" r="1.3" fill="#ea580c" className="chat-dot-2" />
+            <circle cx="15.5" cy="11.5" r="1.3" fill="#ea580c" className="chat-dot-3" />
+          </svg>
         </button>
       )}
 
@@ -2584,7 +2814,7 @@ export default function AdminDashboard() {
                   cursor: 'pointer'
                 }}
               >
-                {aiMuted ? '🔇 Muted' : '🔊 Voice'}
+                {aiMuted ? 'Muted' : 'Voice'}
               </button>
 
               {/* Clear History */}
@@ -2646,10 +2876,10 @@ export default function AdminDashboard() {
             }}
           >
             {[
-              { label: '📊 Revenue', prompt: "Summarize today's revenue, total orders, and pending delivery status." },
-              { label: '📦 Stock & Sales', prompt: "Which products are marked as Best Sellers and what items are currently on sale?" },
-              { label: '💡 Campaigns', prompt: "Give me 3 practical high-converting promotional campaign ideas to boost accessory sales this weekend." },
-              { label: '🌐 Market Trends', prompt: "What are the most popular trending mobile accessories in Pakistan right now?" }
+              { label: 'Revenue', prompt: "Summarize today's revenue, total orders, and pending delivery status." },
+              { label: 'Stock & Sales', prompt: "Which products are marked as Best Sellers and what items are currently on sale?" },
+              { label: 'Campaigns', prompt: "Give me 3 practical high-converting promotional campaign ideas to boost accessory sales this weekend." },
+              { label: 'Market Trends', prompt: "What are the most popular trending mobile accessories in Pakistan right now?" }
             ].map((chip, idx) => (
               <button
                 key={idx}
@@ -2738,7 +2968,7 @@ export default function AdminDashboard() {
                             fontWeight: 500
                           }}
                         >
-                          {isAiSpeaking ? '⏹️ Stop' : '🔊 Replay Voice'}
+                          {isAiSpeaking ? 'Stop' : 'Replay Voice'}
                         </button>
                       </div>
                     )}

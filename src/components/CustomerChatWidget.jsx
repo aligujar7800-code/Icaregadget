@@ -13,7 +13,7 @@ export default function CustomerChatWidget() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "Hello! 👋 Welcome to I Care Gadget. How can I help you find authentic chargers, AirPods, or accessories today?"
+      content: "Hello! Welcome to I Care Gadget. How can I help you find authentic chargers, AirPods, or accessories today?"
     }
   ]);
   const [input, setInput] = useState('');
@@ -70,10 +70,10 @@ export default function CustomerChatWidget() {
   };
 
   const quickPrompts = [
-    "🔥 Best Sellers",
-    "⚡ iPhone 20W Charger",
-    "🎧 AirPods & Audio",
-    "📍 Store Location & Hours"
+    "Best Sellers",
+    "iPhone 20W Charger",
+    "AirPods & Audio",
+    "Store Location & Hours"
   ];
 
   const handleSend = async (textToSend, audioBase64 = null) => {
@@ -82,7 +82,7 @@ export default function CustomerChatWidget() {
     if (loading) return;
 
     // Immediately display the user's spoken or typed words in chat
-    const initialUserText = text || (audioBase64 ? "🎙️ Transcribing voice..." : "");
+    const initialUserText = text || (audioBase64 ? "Transcribing voice..." : "");
     const newMessages = [...messages, { role: 'user', content: initialUserText }];
     setMessages(newMessages);
     setInput('');
@@ -112,7 +112,7 @@ export default function CustomerChatWidget() {
       const reply = data.reply || "I'm having a brief connection issue. Please give me a moment and ask again!";
 
       // Replace the temporary transcription placeholder with the exact text transcribed by AI
-      const finalUserText = data.userText || text || "🎙️ [Voice Inquiry]";
+      const finalUserText = data.userText || text || "[Voice Inquiry]";
       const updatedMessages = [
         ...messages,
         { role: 'user', content: finalUserText },
@@ -124,7 +124,7 @@ export default function CustomerChatWidget() {
         playVoice(data.audio);
       }
     } catch (err) {
-      const finalUserText = text || "🎙️ [Voice Inquiry]";
+      const finalUserText = text || "[Voice Inquiry]";
       setMessages([
         ...messages,
         { role: 'user', content: finalUserText },
@@ -217,54 +217,41 @@ export default function CustomerChatWidget() {
 
   return (
     <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, fontFamily: 'Inter, sans-serif' }}>
-      {/* Floating Trigger Button */}
+      {/* Floating Trigger Button: Orange Animated Chat Bubble */}
       {!isOpen && (
         <button
+          type="button"
           onClick={() => setIsOpen(true)}
-          style={{
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            backgroundColor: '#0a0a0a',
-            color: '#ffffff',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: '9999px',
-            padding: '12px 20px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-            cursor: 'pointer',
-            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            fontWeight: 600,
-            fontSize: '14px'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-3px)';
-            e.currentTarget.style.boxShadow = '0 15px 30px rgba(0,0,0,0.4)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 10px 25px rgba(0,0,0,0.3)';
-          }}
+          className="orange-chat-trigger-btn"
+          title="Chat with I Care AI"
+          aria-label="Chat with I Care AI"
         >
-          <span style={{ fontSize: '18px' }}>💬</span>
-          <span>Chat with Store AI</span>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M20 11.5C20 15.6421 16.4183 19 12 19C10.7424 19 9.55163 18.7291 8.5 18.2435L4 20L5.34208 16.6448C4.50974 15.1764 4 13.4181 4 11.5C4 7.35786 7.58172 4 12 4C16.4183 4 20 7.35786 20 11.5Z"
+              fill="#ffffff"
+            />
+            <circle cx="8.5" cy="11.5" r="1.3" fill="#ea580c" className="chat-dot-1" />
+            <circle cx="12" cy="11.5" r="1.3" fill="#ea580c" className="chat-dot-2" />
+            <circle cx="15.5" cy="11.5" r="1.3" fill="#ea580c" className="chat-dot-3" />
+          </svg>
           {unread > 0 && (
             <span
               style={{
                 position: 'absolute',
-                top: '-4px',
-                right: '-4px',
-                backgroundColor: '#ef4444',
+                top: '-2px',
+                right: '-2px',
+                backgroundColor: '#111827',
                 color: '#ffffff',
-                fontSize: '11px',
+                fontSize: '10px',
                 fontWeight: 700,
                 borderRadius: '9999px',
-                width: '20px',
-                height: '20px',
+                width: '18px',
+                height: '18px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 2px 5px rgba(239,68,68,0.5)'
+                border: '2px solid #ffffff'
               }}
             >
               {unread}
@@ -293,7 +280,7 @@ export default function CustomerChatWidget() {
           {/* Header */}
           <div
             style={{
-              padding: '16px 20px',
+              padding: '14px 18px',
               backgroundColor: '#0a0a0a',
               color: '#ffffff',
               display: 'flex',
@@ -302,54 +289,51 @@ export default function CustomerChatWidget() {
               borderBottom: '1px solid rgba(255,255,255,0.1)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  backgroundColor: '#1f2937',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '18px'
-                }}
-              >
-                🛍️
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '15px' }}>I Care Support</div>
-                <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-                  Voice & AI Active
-                </div>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
+              <div style={{ fontWeight: 600, fontSize: '14px', letterSpacing: '-0.2px' }}>I Care Support</div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
+                type="button"
                 onClick={() => setIsMuted(!isMuted)}
                 title={isMuted ? "Unmute Voice Replies" : "Mute Voice Replies"}
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: isMuted ? '#9ca3af' : '#10b981',
+                  color: isMuted ? '#6b7280' : '#10b981',
                   cursor: 'pointer',
-                  fontSize: '17px',
-                  padding: '4px'
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center'
                 }}
               >
-                {isMuted ? '🔇' : '🔊'}
+                {isMuted ? (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
+                    <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                  </svg>
+                ) : (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  </svg>
+                )}
               </button>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 style={{
                   backgroundColor: 'transparent',
                   border: 'none',
                   color: '#9ca3af',
-                  fontSize: '20px',
+                  fontSize: '18px',
                   cursor: 'pointer',
-                  padding: '4px 8px',
+                  padding: '4px 6px',
                   lineHeight: 1
                 }}
               >
@@ -448,7 +432,7 @@ export default function CustomerChatWidget() {
                             fontWeight: 500
                           }}
                         >
-                          {msg.audio ? '▶ Replay Voice' : '🔊 Listen'}
+                          {msg.audio ? 'Replay Voice' : 'Listen'}
                         </button>
                       </div>
                     )}
