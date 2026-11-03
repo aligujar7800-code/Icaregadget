@@ -1420,7 +1420,7 @@ export default function AdminDashboard() {
                           <td style={{ padding: '8px 10px', fontWeight: '700', color: '#111827', fontSize: '12px' }}>{order.price}</td>
                           <td style={{ padding: '8px 10px', color: '#64748b', fontSize: '11px', whiteSpace: 'nowrap' }}>{order.date}</td>
                           <td style={{ padding: '8px 10px' }}>
-                            {/* Single Orange Status Button with Solid Black Text */}
+                            {/* Status Dropdown with White Background */}
                             <select
                               value={order.status || 'Pending'}
                               onChange={(e) => {
@@ -1431,14 +1431,14 @@ export default function AdminDashboard() {
                                 }
                               }}
                               style={{
-                                padding: '4px 8px',
-                                borderRadius: '5px',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
                                 fontSize: '11.5px',
                                 fontWeight: '600',
                                 cursor: 'pointer',
                                 outline: 'none',
-                                border: '1px solid #ea580c',
-                                backgroundColor: '#fed7aa',
+                                border: '1px solid #d1d5db',
+                                backgroundColor: '#ffffff',
                                 color: '#111827',
                                 boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
                               }}
