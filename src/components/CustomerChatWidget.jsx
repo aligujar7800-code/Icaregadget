@@ -438,37 +438,20 @@ export default function CustomerChatWidget() {
           {isRecording && (
             <div
               style={{
-                backgroundColor: '#fee2e2',
-                borderTop: '1px solid #fecaca',
+                backgroundColor: '#ffffff',
+                borderTop: '1px solid #e5e7eb',
                 padding: '8px 16px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                color: '#991b1b',
-                fontSize: '13px',
-                fontWeight: 600
+                color: '#111827',
+                fontSize: '12.5px',
+                fontWeight: 500
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ width: '10px', height: '10px', backgroundColor: '#dc2626', borderRadius: '50%', animation: 'pulse 1s infinite' }} />
+                <span style={{ width: '8px', height: '8px', backgroundColor: '#dc2626', borderRadius: '50%', animation: 'pulse 1s infinite' }} />
                 <span>{liveTranscript ? `"${liveTranscript}"` : `Listening... (${recordingSeconds}s)`}</span>
               </div>
-              <button
-                type="button"
-                onClick={stopRecording}
-                style={{
-                  backgroundColor: '#dc2626',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '9999px',
-                  padding: '4px 12px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                Send Voice ➔
-              </button>
             </div>
           )}
 

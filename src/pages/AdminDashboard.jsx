@@ -3027,14 +3027,13 @@ export default function AdminDashboard() {
           {aiRecording && (
             <div
               style={{
-                backgroundColor: '#fef2f2',
-                borderTop: '1px solid #fee2e2',
+                backgroundColor: '#ffffff',
+                borderTop: '1px solid #e2e8f0',
                 padding: '8px 14px',
                 fontSize: '12px',
-                color: '#b91c1c',
+                color: '#111827',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
+                alignItems: 'center'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
@@ -3043,23 +3042,6 @@ export default function AdminDashboard() {
                   {aiLiveTranscript || "Listening to your voice..."}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={stopAiRecording}
-                style={{
-                  backgroundColor: '#ef4444',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '2px 8px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  flexShrink: 0
-                }}
-              >
-                Send
-              </button>
             </div>
           )}
 
