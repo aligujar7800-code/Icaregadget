@@ -1275,6 +1275,18 @@ app.post('/api/auth/register', async (req, res) => {
 
 // ==================== AI CHAT ROUTES (MULTI-TENANT n8n ENGINE) ====================
 
+// Helper to strip unwanted URLs and markdown links from AI output
+function sanitizeAiReply(text) {
+  if (!text || typeof text !== 'string') return text;
+  // Convert markdown links [Label](http...) -> Label
+  let cleaned = text.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]+\)/gi, '$1');
+  // Strip any remaining bare web URLs
+  cleaned = cleaned.replace(/https?:\/\/[^\s\)\],]+/gi, '');
+  // Clean up any double spaces
+  cleaned = cleaned.replace(/\s{2,}/g, ' ');
+  return cleaned.trim();
+}
+
 // 1. Customer Chat (Website Widget)
 app.post('/api/chat', async (req, res) => {
   try {
@@ -1345,7 +1357,8 @@ app.post('/api/chat', async (req, res) => {
 
       if (n8nResponse.ok) {
         const data = await n8nResponse.json();
-        const replyText = typeof data === 'string' ? data : (data.reply || data.message || data.output || "Hello! How can I help you find gadgets today?");
+        const rawReply = typeof data === 'string' ? data : (data.reply || data.message || data.output || "Hello! How can I help you find gadgets today?");
+        const replyText = sanitizeAiReply(rawReply);
         return res.json({ 
           success: true, 
           reply: replyText,
@@ -1479,9 +1492,10 @@ app.post('/api/chat/admin', async (req, res) => {
 
       if (n8nRes.ok) {
         const data = await n8nRes.json();
+        const rawReply = data.reply || data.message || data.output || '';
         return res.json({ 
           success: true, 
-          reply: data.reply || data.message || data.output,
+          reply: sanitizeAiReply(rawReply),
           audio: data.audio || null,
           userText: data.userText || (message || null)
         });
