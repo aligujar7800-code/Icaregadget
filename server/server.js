@@ -1275,11 +1275,13 @@ app.post('/api/auth/register', async (req, res) => {
 
 // ==================== AI CHAT ROUTES (MULTI-TENANT n8n ENGINE) ====================
 
-// Helper to strip unwanted URLs and markdown links from AI output
+// Helper to strip unwanted URLs, search citations, and markdown links from AI output
 function sanitizeAiReply(text) {
   if (!text || typeof text !== 'string') return text;
   // Convert markdown links [Label](http...) -> Label
   let cleaned = text.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]+\)/gi, '$1');
+  // Remove online search citation footnotes like [1], [2], [Source], [source 1]
+  cleaned = cleaned.replace(/\[\s*(?:\d+|source[^\]]*|link[^\]]*)\]/gi, '');
   // Strip any remaining bare web URLs
   cleaned = cleaned.replace(/https?:\/\/[^\s\)\],]+/gi, '');
   // Clean up any double spaces
