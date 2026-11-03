@@ -71,6 +71,132 @@ export const StoreProvider = ({ children }) => {
     }
   });
 
+  // Enterprise Store Modules State
+  const [coupons, setCoupons] = useState(() => {
+    try {
+      const saved = localStorage.getItem('store_coupons');
+      return saved ? JSON.parse(saved) : [
+        { id: 1, code: 'WELCOME10', type: 'percentage', value: 10, minSpend: 2000, usageCount: 14, usageLimit: 100, expiry: '2026-12-31', active: true },
+        { id: 2, code: 'ICARE500', type: 'fixed', value: 500, minSpend: 5000, usageCount: 6, usageLimit: 50, expiry: '2026-11-30', active: true }
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  const [returns, setReturns] = useState(() => {
+    try {
+      const saved = localStorage.getItem('store_returns');
+      return saved ? JSON.parse(saved) : [
+        { id: 'RET-101', orderId: '751417', customerName: 'Malik Azan', customerPhone: '+923190229789', product: '1x Iphone 17 pro', amount: 350000, reason: 'Defective charging port / screen glitch', status: 'Pending Review', date: 'Nov 3, 2026' }
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  const [abandonedCarts, setAbandonedCarts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('store_abandoned_carts');
+      return saved ? JSON.parse(saved) : [
+        { id: 'AB-882', customerName: 'Usman Ali', phone: '+923001234567', email: 'usman@gmail.com', items: '20W Fast Charger + Braided Cable', total: 6500, date: 'Nov 3, 2026, 8:45 PM', status: 'Uncontacted' },
+        { id: 'AB-883', customerName: 'Zain Tariq', phone: '+923214567890', email: 'zain@gmail.com', items: 'AirPods Pro Case', total: 3200, date: 'Nov 2, 2026, 3:10 PM', status: 'Reminded' }
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  const [reviews, setReviews] = useState(() => {
+    try {
+      const saved = localStorage.getItem('store_reviews');
+      return saved ? JSON.parse(saved) : [
+        { id: 1, productName: 'Apple 20W USB-C Power Adapter', customerName: 'Faisal Mehmood', rating: 5, comment: '100% genuine charger, charges my iPhone rapidly without any heating issues. Excellent store!', date: 'Nov 2, 2026', status: 'Published', reply: 'Thank you for your valuable feedback, Faisal! Glad you loved it.' },
+        { id: 2, productName: 'AirPods Pro 2nd Gen', customerName: 'Hamza Khan', rating: 4, comment: 'Sound quality is great and ANC works nicely. Dispatch was fast within 2 days.', date: 'Nov 1, 2026', status: 'Published', reply: '' }
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  const [shippingSettings, setShippingSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('store_shipping');
+      return saved ? JSON.parse(saved) : {
+        flatRate: 200,
+        freeShippingThreshold: 5000,
+        defaultCourier: 'PostEx',
+        originCity: 'Faisalabad (Kohinoor City)',
+        estimatedDays: '2-4 Business Days',
+        couriers: ['PostEx', 'TCS', 'Trax', 'Leopards']
+      };
+    } catch {
+      return { flatRate: 200, freeShippingThreshold: 5000, defaultCourier: 'PostEx', originCity: 'Faisalabad', estimatedDays: '2-4 Days', couriers: ['PostEx', 'TCS', 'Trax', 'Leopards'] };
+    }
+  });
+
+  const [integrations, setIntegrations] = useState(() => {
+    try {
+      const saved = localStorage.getItem('store_integrations');
+      return saved ? JSON.parse(saved) : {
+        metaPixelId: '108429402948291',
+        tiktokPixelId: 'C890K19412',
+        ga4Id: 'G-7X9Y1Z2',
+        whatsappNumber: '+923190229789',
+        whatsappApiKey: ''
+      };
+    } catch {
+      return { metaPixelId: '', tiktokPixelId: '', ga4Id: '', whatsappNumber: '+923190229789', whatsappApiKey: '' };
+    }
+  });
+
+  const [staffMembers, setStaffMembers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('store_staff');
+      return saved ? JSON.parse(saved) : [
+        { id: 1, name: 'Malik Azan', email: 'admin@icaregadget.store', role: 'Super Admin', status: 'Active', lastLogin: 'Today, 2:15 AM' },
+        { id: 2, name: 'Faisal Staff', email: 'support@icaregadget.store', role: 'Order Manager', status: 'Active', lastLogin: 'Yesterday, 6:30 PM' }
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  const [storePages, setStorePages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('store_pages');
+      return saved ? JSON.parse(saved) : {
+        about: "I Care Gadget is Pakistan's premier destination for 100% authentic Apple accessories, fast chargers, earbuds, and premium smartphone gadgets. Located at Kohinoor City, we provide nationwide fast dispatch and customer satisfaction guarantee.",
+        shipping: "All nationwide orders are dispatched within 24 hours via premier courier partners (PostEx, TCS, Trax). Estimated delivery time is 2-4 business days. Free shipping applies automatically on all orders above Rs. 5,000.",
+        returns: "We offer an easy 7-day replacement warranty on manufacturing defects. Items must be returned in original packaging with provided consignment receipts.",
+        terms: "By placing an order on I Care Gadget, you agree to our verification and delivery policies. Cash on Delivery is available across all major cities of Pakistan.",
+        faq: "Q: Are your chargers authentic Apple?\nA: Yes, 100% original authentic accessories with warranty.\n\nQ: How do I track my order?\nA: Use your Order ID or CN tracking number on our Track Order page or ask our AI assistant!"
+      };
+    } catch {
+      return {};
+    }
+  });
+
+  const [productStocks, setProductStocks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('store_product_stocks');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Sync new modules to localStorage
+  useEffect(() => { try { localStorage.setItem('store_coupons', JSON.stringify(coupons)); } catch(e){} }, [coupons]);
+  useEffect(() => { try { localStorage.setItem('store_returns', JSON.stringify(returns)); } catch(e){} }, [returns]);
+  useEffect(() => { try { localStorage.setItem('store_abandoned_carts', JSON.stringify(abandonedCarts)); } catch(e){} }, [abandonedCarts]);
+  useEffect(() => { try { localStorage.setItem('store_reviews', JSON.stringify(reviews)); } catch(e){} }, [reviews]);
+  useEffect(() => { try { localStorage.setItem('store_shipping', JSON.stringify(shippingSettings)); } catch(e){} }, [shippingSettings]);
+  useEffect(() => { try { localStorage.setItem('store_integrations', JSON.stringify(integrations)); } catch(e){} }, [integrations]);
+  useEffect(() => { try { localStorage.setItem('store_staff', JSON.stringify(staffMembers)); } catch(e){} }, [staffMembers]);
+  useEffect(() => { try { localStorage.setItem('store_pages', JSON.stringify(storePages)); } catch(e){} }, [storePages]);
+  useEffect(() => { try { localStorage.setItem('store_product_stocks', JSON.stringify(productStocks)); } catch(e){} }, [productStocks]);
+
   // Sync to localStorage as offline cache
   useEffect(() => { try { localStorage.setItem('user', JSON.stringify(user)); } catch(e){} }, [user]);
   useEffect(() => { try { localStorage.setItem('registeredCustomers', JSON.stringify(registeredCustomers)); } catch(e){} }, [registeredCustomers]);
@@ -698,6 +824,85 @@ export const StoreProvider = ({ children }) => {
     return { success: true };
   };
 
+  // Coupon Handlers
+  const addCoupon = (coupon) => {
+    const newCoupon = { id: Date.now(), ...coupon, active: true, usageCount: 0 };
+    setCoupons(prev => [newCoupon, ...prev]);
+    return { success: true, coupon: newCoupon };
+  };
+  const deleteCoupon = (id) => {
+    setCoupons(prev => prev.filter(c => c.id !== id));
+  };
+  const toggleCoupon = (id) => {
+    setCoupons(prev => prev.map(c => c.id === id ? { ...c, active: !c.active } : c));
+  };
+
+  // Return Handlers
+  const addReturn = (returnData) => {
+    const newRet = { id: 'RET-' + Date.now().toString().slice(-4), date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), status: 'Pending Review', ...returnData };
+    setReturns(prev => [newRet, ...prev]);
+    return { success: true, returnItem: newRet };
+  };
+  const updateReturnStatus = (id, newStatus) => {
+    setReturns(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+  };
+
+  // Abandoned Cart Handlers
+  const markCartRecovered = (id) => {
+    setAbandonedCarts(prev => prev.map(c => c.id === id ? { ...c, status: 'Recovered' } : c));
+  };
+  const markCartContacted = (id) => {
+    setAbandonedCarts(prev => prev.map(c => c.id === id ? { ...c, status: 'Reminded' } : c));
+  };
+
+  // Review Handlers
+  const addReview = (reviewData) => {
+    const newRev = { id: Date.now(), date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), status: 'Published', reply: '', ...reviewData };
+    setReviews(prev => [newRev, ...prev]);
+  };
+  const updateReviewStatus = (id, newStatus) => {
+    setReviews(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+  };
+  const deleteReview = (id) => {
+    setReviews(prev => prev.filter(r => r.id !== id));
+  };
+  const replyToReview = (id, replyText) => {
+    setReviews(prev => prev.map(r => r.id === id ? { ...r, reply: replyText } : r));
+  };
+
+  // Shipping
+  const updateShippingSettings = (newSettings) => {
+    setShippingSettings(prev => ({ ...prev, ...newSettings }));
+  };
+
+  // Integrations
+  const updateIntegrations = (newIntegrations) => {
+    setIntegrations(prev => ({ ...prev, ...newIntegrations }));
+  };
+
+  // Staff
+  const addStaffMember = (staffData) => {
+    const newMember = { id: Date.now(), status: 'Active', lastLogin: 'Never', ...staffData };
+    setStaffMembers(prev => [...prev, newMember]);
+    return { success: true, member: newMember };
+  };
+  const deleteStaffMember = (id) => {
+    setStaffMembers(prev => prev.filter(s => s.id !== id));
+  };
+  const updateStaffRole = (id, newRole) => {
+    setStaffMembers(prev => prev.map(s => s.id === id ? { ...s, role: newRole } : s));
+  };
+
+  // Store Pages
+  const updateStorePage = (pageKey, content) => {
+    setStorePages(prev => ({ ...prev, [pageKey]: content }));
+  };
+
+  // Stock
+  const updateProductStock = (productId, newStock) => {
+    setProductStocks(prev => ({ ...prev, [productId]: Number(newStock) }));
+  };
+
   const getAccountingSummary = async () => {
     try {
       const res = await fetch('/api/accounting/summary');
@@ -723,7 +928,16 @@ user, login, register, loginWithGoogle, logout,
       isCartOpen, setIsCartOpen,
       isMobileMenuOpen, setIsMobileMenuOpen,
       selectedProduct, setSelectedProduct,
-      loading
+      loading,
+      coupons, addCoupon, deleteCoupon, toggleCoupon,
+      returns, addReturn, updateReturnStatus,
+      abandonedCarts, markCartRecovered, markCartContacted,
+      reviews, addReview, updateReviewStatus, deleteReview, replyToReview,
+      shippingSettings, updateShippingSettings,
+      integrations, updateIntegrations,
+      staffMembers, addStaffMember, deleteStaffMember, updateStaffRole,
+      storePages, updateStorePage,
+      productStocks, updateProductStock
     }}>
       {children}
     </StoreContext.Provider>
