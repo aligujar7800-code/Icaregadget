@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
+import { COURIER_OPTIONS, getCourierTrackingUrl, getCourierBrandStyle } from '../utils/courier';
 
 export default function AdminDashboard() {
   const { 
@@ -687,20 +688,30 @@ export default function AdminDashboard() {
                       <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Total</th>
                       <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Date</th>
                       <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Order Status (Click to Change)</th>
+                      <th style={{ padding: '12px 16px', color: '#6b7280', fontWeight: '600', fontSize: '0.875rem' }}>Courier & Tracking (CN #)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {orders.slice().reverse().map(order => (
                       <tr key={order.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                         <td style={{ padding: '16px', fontWeight: '500', color: '#111827' }}>#{order.id.toString().slice(-6)}</td>
-                        <td style={{ padding: '16px', color: '#4b5563' }}>{order.userName}</td>
-                        <td style={{ padding: '16px', color: '#4b5563' }}>{order.productName}</td>
+                        <td style={{ padding: '16px', color: '#4b5563' }}>
+                          <div style={{ fontWeight: '600', color: '#111827' }}>{order.userName}</div>
+                          {order.phone && <div style={{ fontSize: '0.78rem', color: '#6b7280' }}>📞 {order.phone}</div>}
+                        </td>
+                        <td style={{ padding: '16px', color: '#4b5563', maxWidth: '240px' }}>{order.productName}</td>
                         <td style={{ padding: '16px', fontWeight: '600', color: '#111827' }}>{order.price}</td>
                         <td style={{ padding: '16px', color: '#6b7280', fontSize: '0.875rem' }}>{order.date}</td>
                         <td style={{ padding: '16px' }}>
                           <select
                             value={order.status || 'Pending'}
-                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                            onChange={(e) => {
+                              const newSt = e.target.value;
+                              updateOrderStatus(order.id, newSt);
+                              if (newSt === 'Shipped' && !order.trackingNumber) {
+                                openTrackingModal({ ...order, status: newSt });
+                              }
+                            }}
                             style={{
                               padding: '5px 12px',
                               borderRadius: '20px',
@@ -733,6 +744,77 @@ export default function AdminDashboard() {
                             <option value="Delivered">🟢 Delivered</option>
                             <option value="Cancelled">🔴 Cancelled</option>
                           </select>
+                        </td>
+                        <td style={{ padding: '16px' }}>
+                          {order.trackingNumber ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: '700',
+                                backgroundColor: getCourierBrandStyle(order.courier).bg,
+                                border: `1px solid ${getCourierBrandStyle(order.courier).border}`,
+                                color: getCourierBrandStyle(order.courier).text,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                {getCourierBrandStyle(order.courier).icon} {order.courier || 'Courier'}: {order.trackingNumber}
+                              </span>
+                              {getCourierTrackingUrl(order.courier, order.trackingNumber) && (
+                                <a
+                                  href={getCourierTrackingUrl(order.courier, order.trackingNumber)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Test live on courier portal"
+                                  style={{
+                                    padding: '3px 7px',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#f1f5f9',
+                                    color: '#334155',
+                                    fontSize: '0.75rem',
+                                    textDecoration: 'none',
+                                    fontWeight: '600'
+                                  }}
+                                >
+                                  Track ↗
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => openTrackingModal(order)}
+                                title="Edit Tracking Number"
+                                style={{
+                                  border: 'none',
+                                  background: 'none',
+                                  cursor: 'pointer',
+                                  color: '#64748b',
+                                  fontSize: '0.85rem',
+                                  padding: '2px 4px'
+                                }}
+                              >
+                                ✏️
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => openTrackingModal(order)}
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                border: '1px dashed #cbd5e1',
+                                backgroundColor: '#f8fafc',
+                                color: '#475569',
+                                fontSize: '0.75rem',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              + Add Courier / CN #
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1441,6 +1523,120 @@ export default function AdminDashboard() {
 
           </div>
         )}
+        {/* Courier & Tracking Modal */}
+        {editingTrackingOrder && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '16px'
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '480px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#111827', margin: 0 }}>
+                  Assign Courier & Tracking (CN #)
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingTrackingOrder(null)}
+                  style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#6b7280' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '18px', fontSize: '0.85rem' }}>
+                <div>Order: <strong>#{editingTrackingOrder.id.toString().slice(-6)}</strong></div>
+                <div>Customer: <strong>{editingTrackingOrder.userName}</strong> {editingTrackingOrder.phone ? `(${editingTrackingOrder.phone})` : ''}</div>
+                {editingTrackingOrder.shippingAddress && (
+                  <div style={{ marginTop: '2px', color: '#64748b' }}>📍 {editingTrackingOrder.shippingAddress}</div>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveTracking} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
+                    Courier Partner
+                  </label>
+                  <select
+                    value={courierInput}
+                    onChange={e => setCourierInput(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '0.9rem', outline: 'none' }}
+                  >
+                    {COURIER_OPTIONS.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
+                    Consignment / Tracking Number (CN #)
+                  </label>
+                  <input
+                    type="text"
+                    value={trackingNumInput}
+                    onChange={e => setTrackingNumInput(e.target.value)}
+                    placeholder="e.g. PE123456789PK or 77889900"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                    required
+                  />
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                    Copy this number from your PostEx, TCS, or Trax booking voucher.
+                  </span>
+                </div>
+
+                {trackingNumInput.trim() && getCourierTrackingUrl(courierInput, trackingNumInput) && (
+                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 12px', borderRadius: '8px', fontSize: '0.8rem', color: '#166534' }}>
+                    ✓ Customers will have a direct 1-click tracking link to <strong>{courierInput}</strong>!
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingTrackingOrder(null)}
+                    style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#f9fafb', color: '#374151', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingTracking || !trackingNumInput.trim()}
+                    style={{
+                      flex: 2,
+                      padding: '10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      backgroundColor: '#111827',
+                      color: '#ffffff',
+                      fontWeight: '600',
+                      cursor: isSavingTracking || !trackingNumInput.trim() ? 'not-allowed' : 'pointer',
+                      opacity: isSavingTracking || !trackingNumInput.trim() ? 0.6 : 1
+                    }}
+                  >
+                    {isSavingTracking ? 'Saving...' : 'Save Tracking'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
       </main>
 
       {/* ==================== FLOATING ADMIN AI CHAT SYSTEM ==================== */}

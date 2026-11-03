@@ -394,21 +394,108 @@ app.post('/api/orders', async (req, res) => {
 
 app.put('/api/orders/:id/status', async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, courier, trackingNumber } = req.body;
     const id = req.params.id;
     if (isDbConnected) {
       try {
-        await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
-        return res.json({ success: true, id, status });
+        const fields = [];
+        const params = [];
+        if (status !== undefined) { fields.push('status = ?'); params.push(status); }
+        if (courier !== undefined) { fields.push('courier = ?'); params.push(courier); }
+        if (trackingNumber !== undefined) { fields.push('trackingNumber = ?'); params.push(trackingNumber); }
+        
+        if (fields.length > 0) {
+          params.push(id);
+          await pool.query(`UPDATE orders SET ${fields.join(', ')} WHERE id = ?`, params);
+          return res.json({ success: true, id, status, courier, trackingNumber });
+        }
       } catch (dbErr) {
         console.warn('MySQL update order status failed, using fallback:', dbErr.message);
       }
     }
-    fallbackStore.updateOrderStatus(id, status);
-    res.json({ success: true, id, status });
+    const updated = fallbackStore.updateOrderStatus(id, status, courier, trackingNumber);
+    res.json({ success: true, id, status, courier, trackingNumber, order: updated });
   } catch (err) {
     console.error('Error updating order status:', err);
     res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
+
+// Public Order Tracking Endpoint (Method A)
+app.get('/api/orders/track', async (req, res) => {
+  try {
+    const { orderId, query: contact } = req.query;
+    if (!orderId) {
+      return res.status(400).json({ success: false, error: 'Order ID is required' });
+    }
+
+    const cleanOrderId = String(orderId).replace(/[^0-9]/g, '');
+    if (!cleanOrderId) {
+      return res.status(400).json({ success: false, error: 'Invalid Order ID format' });
+    }
+
+    let order = null;
+
+    if (isDbConnected) {
+      try {
+        const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? LIMIT 1', [cleanOrderId]);
+        if (rows.length > 0) {
+          order = {
+            ...rows[0],
+            id: Number(rows[0].id),
+            items: typeof rows[0].items === 'string' ? JSON.parse(rows[0].items || '[]') : (rows[0].items || [])
+          };
+        }
+      } catch (err) {
+        console.warn('MySQL track order lookup error:', err.message);
+      }
+    }
+
+    if (!order) {
+      const orders = fallbackStore.getOrders();
+      order = orders.find(o => String(o.id) === cleanOrderId);
+    }
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: `Order #${cleanOrderId} was not found. Please verify your Order ID.` });
+    }
+
+    // If customer provided email or phone for verification, check match
+    if (contact && contact.trim()) {
+      const cleanContact = contact.trim().toLowerCase();
+      const orderEmail = (order.userEmail || '').toLowerCase();
+      const orderPhone = (order.phone || '').replace(/[^0-9]/g, '');
+      const inputPhone = cleanContact.replace(/[^0-9]/g, '');
+
+      const emailMatches = orderEmail && orderEmail === cleanContact;
+      const phoneMatches = inputPhone && orderPhone && (orderPhone.endsWith(inputPhone) || inputPhone.endsWith(orderPhone));
+
+      if (!emailMatches && !phoneMatches) {
+        return res.status(403).json({ 
+          success: false, 
+          error: 'Verification failed: The email or phone number entered does not match this order.' 
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      order: {
+        id: Number(order.id),
+        status: order.status || 'Pending',
+        courier: order.courier || '',
+        trackingNumber: order.trackingNumber || '',
+        date: order.date,
+        items: order.items || [],
+        productName: order.productName,
+        price: order.price,
+        shippingAddress: order.shippingAddress,
+        userName: order.userName
+      }
+    });
+  } catch (err) {
+    console.error('Error tracking order:', err);
+    res.status(500).json({ success: false, error: 'Internal error checking order status' });
   }
 });
 

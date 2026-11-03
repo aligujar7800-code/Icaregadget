@@ -74,6 +74,8 @@ export async function initDB() {
         items JSON,
         price VARCHAR(100) NOT NULL,
         status VARCHAR(50) DEFAULT 'Pending',
+        courier VARCHAR(100) DEFAULT '',
+        trackingNumber VARCHAR(100) DEFAULT '',
         date VARCHAR(100) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -186,6 +188,8 @@ export async function initDB() {
     await safeAddColumn('orders', 'phone', "VARCHAR(50) DEFAULT ''");
     await safeAddColumn('orders', 'shippingAddress', 'TEXT');
     await safeAddColumn('orders', 'items', 'JSON');
+    await safeAddColumn('orders', 'courier', "VARCHAR(100) DEFAULT ''");
+    await safeAddColumn('orders', 'trackingNumber', "VARCHAR(100) DEFAULT ''");
 
     console.log('✅ MySQL Database initialized successfully');
   } catch (err) {

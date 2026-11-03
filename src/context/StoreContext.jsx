@@ -607,22 +607,44 @@ export const StoreProvider = ({ children }) => {
     });
   };
 
-  const updateOrderStatus = async (orderId, newStatus) => {
+  const updateOrderStatus = async (orderId, newStatus, courier, trackingNumber) => {
     try {
+      const payload = {};
+      if (newStatus !== undefined) payload.status = newStatus;
+      if (courier !== undefined) payload.courier = courier;
+      if (trackingNumber !== undefined) payload.trackingNumber = trackingNumber;
+
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...payload } : o));
         return { success: true };
       }
     } catch (err) {
       console.error('Failed to update order status:', err);
     }
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    setOrders(prev => prev.map(o => o.id === orderId ? {
+      ...o,
+      ...(newStatus !== undefined ? { status: newStatus } : {}),
+      ...(courier !== undefined ? { courier } : {}),
+      ...(trackingNumber !== undefined ? { trackingNumber } : {})
+    } : o));
     return { success: true };
+  };
+
+  const trackOrderPublic = async (orderId, contact) => {
+    try {
+      const q = contact ? `&query=${encodeURIComponent(contact)}` : '';
+      const res = await fetch(`/api/orders/track?orderId=${encodeURIComponent(orderId)}${q}`);
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error('Failed to track order:', err);
+      return { success: false, error: 'Network error tracking order. Please check your connection.' };
+    }
   };
 
   return (
@@ -633,7 +655,7 @@ export const StoreProvider = ({ children }) => {
       storeDetails, updateStoreDetails, 
       categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory,
       products, addProduct, updateProduct, deleteProduct,
-      orders, placeOrder, updateOrderStatus,
+      orders, placeOrder, updateOrderStatus, trackOrderPublic,
       cart, addToCart, removeFromCart, updateQuantity, clearCart,
       isCartOpen, setIsCartOpen,
       isMobileMenuOpen, setIsMobileMenuOpen,

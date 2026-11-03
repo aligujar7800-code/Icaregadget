@@ -241,18 +241,22 @@ export const fallbackStore = {
       ...order,
       id: Number(order.id || Date.now()),
       date: order.date || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-      status: order.status || 'Pending'
+      status: order.status || 'Pending',
+      courier: order.courier || '',
+      trackingNumber: order.trackingNumber || ''
     };
     db.orders.unshift(newOrder);
     writeDB(db);
     return newOrder;
   },
 
-  updateOrderStatus(id, status) {
+  updateOrderStatus(id, status, courier, trackingNumber) {
     const db = readDB();
     const idx = db.orders.findIndex(o => o.id === Number(id));
     if (idx === -1) return null;
-    db.orders[idx].status = status;
+    if (status !== undefined && status !== null) db.orders[idx].status = status;
+    if (courier !== undefined && courier !== null) db.orders[idx].courier = courier;
+    if (trackingNumber !== undefined && trackingNumber !== null) db.orders[idx].trackingNumber = trackingNumber;
     writeDB(db);
     return db.orders[idx];
   },

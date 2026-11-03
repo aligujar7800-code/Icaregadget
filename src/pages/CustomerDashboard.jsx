@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
+import { getCourierTrackingUrl, getCourierBrandStyle } from '../utils/courier';
 
 export default function CustomerDashboard() {
   const { 
@@ -603,6 +604,76 @@ export default function CustomerDashboard() {
                             </div>
                           </div>
 
+                          {/* Courier Dispatch Tracking Box */}
+                          {(order.trackingNumber || (order.status || '').toLowerCase() === 'shipped') && (
+                            <div style={{
+                              marginBottom: '14px',
+                              padding: '12px 14px',
+                              borderRadius: '10px',
+                              backgroundColor: order.trackingNumber ? getCourierBrandStyle(order.courier).bg : '#f8fafc',
+                              border: `1px solid ${order.trackingNumber ? getCourierBrandStyle(order.courier).border : '#e2e8f0'}`,
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              flexWrap: 'wrap',
+                              gap: '10px'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '1.25rem' }}>
+                                  {order.trackingNumber ? getCourierBrandStyle(order.courier).icon : '🚚'}
+                                </span>
+                                <div>
+                                  <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#0f172a' }}>
+                                    {order.trackingNumber ? `Dispatched with ${order.courier || 'Courier'}` : 'Parcel Dispatched'}
+                                  </div>
+                                  {order.trackingNumber ? (
+                                    <div style={{ fontSize: '0.8rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span>CN / Tracking: <strong>{order.trackingNumber}</strong></span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(order.trackingNumber);
+                                          alert(`Copied tracking number: ${order.trackingNumber}`);
+                                        }}
+                                        style={{ background: 'none', border: 'none', color: 'var(--orange)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', padding: 0 }}
+                                      >
+                                        Copy
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                      Shipped and en route with our delivery partner.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                {order.trackingNumber && getCourierTrackingUrl(order.courier, order.trackingNumber) && (
+                                  <a
+                                    href={getCourierTrackingUrl(order.courier, order.trackingNumber)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      padding: '6px 12px',
+                                      borderRadius: '6px',
+                                      backgroundColor: '#111827',
+                                      color: '#ffffff',
+                                      fontSize: '0.78rem',
+                                      fontWeight: '600',
+                                      textDecoration: 'none',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                  >
+                                    Track on {order.courier || 'Courier'} ↗
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Order Footer & Actions */}
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', paddingTop: '12px', borderTop: '1px solid #f8fafc' }}>
                             <div style={{ fontSize: '0.825rem', color: '#64748b' }}>
@@ -631,7 +702,7 @@ export default function CustomerDashboard() {
                                 View Details & Receipt
                               </button>
                               <Link
-                                to="/track"
+                                to={`/track?orderId=${order.id}`}
                                 style={{
                                   padding: '7px 14px',
                                   borderRadius: '6px',
