@@ -41,22 +41,22 @@ export const getCourierTrackingUrl = (courier = '', trackingNumber = '') => {
 export const getCourierBrandStyle = (courier = '') => {
   const c = String(courier).toLowerCase().trim();
   if (c.includes('postex')) {
-    return { bg: '#f5f3ff', border: '#ddd6fe', text: '#6d28d9', icon: '🟣' };
+    return { bg: '#f5f3ff', border: '#ddd6fe', text: '#6d28d9', icon: '•' };
   }
   if (c.includes('tcs')) {
-    return { bg: '#fef2f2', border: '#fecaca', text: '#b91c1c', icon: '🔴' };
+    return { bg: '#fef2f2', border: '#fecaca', text: '#b91c1c', icon: '•' };
   }
   if (c.includes('leopard')) {
-    return { bg: '#fefce8', border: '#fef08a', text: '#854d0e', icon: '🟡' };
+    return { bg: '#fefce8', border: '#fef08a', text: '#854d0e', icon: '•' };
   }
   if (c.includes('trax')) {
-    return { bg: '#fff7ed', border: '#ffedd5', text: '#c2410c', icon: '🟠' };
+    return { bg: '#fff7ed', border: '#ffedd5', text: '#c2410c', icon: '•' };
   }
   if (c.includes('call courier') || c.includes('callcourier')) {
-    return { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d', icon: '🟢' };
+    return { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d', icon: '•' };
   }
   if (c.includes('m&p') || c.includes('muller')) {
-    return { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', icon: '🔵' };
+    return { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', icon: '•' };
   }
-  return { bg: '#f1f5f9', border: '#cbd5e1', text: '#334155', icon: '📦' };
+  return { bg: '#f1f5f9', border: '#cbd5e1', text: '#334155', icon: '•' };
 };

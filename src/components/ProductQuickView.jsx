@@ -21,6 +21,8 @@ export default function ProductQuickView() {
 
   if (!selectedProduct) return null;
 
+  const isOutOfStock = Boolean(selectedProduct.outOfStock || selectedProduct.status === 'out_of_stock');
+
   const images = selectedProduct.images && selectedProduct.images.length > 0 
     ? selectedProduct.images 
     : (selectedProduct.image ? [selectedProduct.image] : []);
@@ -80,7 +82,11 @@ export default function ProductQuickView() {
           )}
           {/* Main Image */}
           <div className="quickview-main-image" style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', position: 'relative' }}>
-            {selectedProduct.sale && (
+            {isOutOfStock ? (
+              <div style={{ position: 'absolute', top: '24px', left: '24px', backgroundColor: '#dc2626', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 12px', letterSpacing: '1px' }}>
+                OUT OF STOCK
+              </div>
+            ) : selectedProduct.sale && (
               <div style={{ position: 'absolute', top: '24px', left: '24px', backgroundColor: '#ef4444', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 12px', letterSpacing: '1px' }}>
                 SALE
               </div>
@@ -115,6 +121,11 @@ export default function ProductQuickView() {
                 <span style={{ fontSize: '0.875rem', color: '#ef4444', fontWeight: '600' }}>Save 40%</span>
               </>
             )}
+            {isOutOfStock && (
+              <span style={{ fontSize: '0.8rem', color: '#f87171', fontWeight: '700', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'rgba(239, 68, 68, 0.2)' }}>
+                Out of Stock
+              </span>
+            )}
           </div>
           
           <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '24px' }}>Shipping calculated at checkout.</p>
@@ -130,25 +141,29 @@ export default function ProductQuickView() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <h4 style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>QUANTITY</h4>
             </div>
-            <div style={{ display: 'flex', border: '1px solid #374151', width: 'fit-content', borderRadius: '2px' }}>
-              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} style={{ background: 'none', border: 'none', color: '#fff', padding: '12px 16px', cursor: 'pointer', fontSize: '1.25rem' }}>-</button>
+            <div style={{ display: 'flex', border: '1px solid #374151', width: 'fit-content', borderRadius: '2px', opacity: isOutOfStock ? 0.4 : 1 }}>
+              <button disabled={isOutOfStock} onClick={() => setQuantity(Math.max(1, quantity - 1))} style={{ background: 'none', border: 'none', color: '#fff', padding: '12px 16px', cursor: isOutOfStock ? 'not-allowed' : 'pointer', fontSize: '1.25rem' }}>-</button>
               <input type="text" value={quantity} readOnly style={{ width: '40px', background: 'none', border: 'none', color: '#fff', textAlign: 'center', fontSize: '1rem', outline: 'none' }} />
-              <button onClick={() => setQuantity(quantity + 1)} style={{ background: 'none', border: 'none', color: '#fff', padding: '12px 16px', cursor: 'pointer', fontSize: '1.25rem' }}>+</button>
+              <button disabled={isOutOfStock} onClick={() => setQuantity(quantity + 1)} style={{ background: 'none', border: 'none', color: '#fff', padding: '12px 16px', cursor: isOutOfStock ? 'not-allowed' : 'pointer', fontSize: '1.25rem' }}>+</button>
             </div>
           </div>
 
           <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
             <button 
-              onClick={() => { addToCart(selectedProduct, quantity); handleClose(); }}
+              disabled={isOutOfStock}
+              onClick={() => { if (!isOutOfStock) { addToCart(selectedProduct, quantity); handleClose(); } }}
               style={{ 
-                width: '100%', padding: '16px', fontSize: '1rem', fontWeight: '600', 
-                backgroundColor: '#fff', color: '#000', border: 'none', cursor: 'pointer',
+                width: '100%', padding: '16px', fontSize: '1rem', fontWeight: '700', 
+                backgroundColor: isOutOfStock ? '#374151' : '#fff', 
+                color: isOutOfStock ? '#9ca3af' : '#000', 
+                border: 'none', 
+                cursor: isOutOfStock ? 'not-allowed' : 'pointer',
                 textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'background-color 0.2s'
               }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e5e7eb'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
+              onMouseEnter={e => { if (!isOutOfStock) e.currentTarget.style.backgroundColor = '#e5e7eb'; }}
+              onMouseLeave={e => { if (!isOutOfStock) e.currentTarget.style.backgroundColor = '#fff'; }}
             >
-              Add to Cart
+              {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
             </button>
           </div>
         </div>

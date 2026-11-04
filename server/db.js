@@ -2,6 +2,7 @@ import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { runMigrations } from './migrate.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -210,6 +211,8 @@ export async function initDB() {
     await safeAddColumn('products', 'costPrice', "VARCHAR(100) DEFAULT '0'");
     await safeAddColumn('products', 'supplierName', "VARCHAR(150) DEFAULT ''");
     await safeAddColumn('products', 'supplierContact', "VARCHAR(50) DEFAULT ''");
+
+    await runMigrations();
 
     console.log('✅ MySQL Database initialized successfully');
   } catch (err) {

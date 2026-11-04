@@ -2,17 +2,31 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { COURIER_OPTIONS, getCourierTrackingUrl, getCourierBrandStyle } from '../utils/courier';
+import AdminOverviewTab from '../components/admin/AdminOverviewTab';
+import AdminCustomersTab from '../components/admin/AdminCustomersTab';
+import AdminReturnsTab from '../components/admin/AdminReturnsTab';
+import AdminAbandonedCartsTab from '../components/admin/AdminAbandonedCartsTab';
+import AdminDiscountsTab from '../components/admin/AdminDiscountsTab';
+import AdminFinancesTab from '../components/admin/AdminFinancesTab';
+import AdminPaymentsTab from '../components/admin/AdminPaymentsTab';
+import AdminShippingTab from '../components/admin/AdminShippingTab';
+import AdminAnalyticsTab from '../components/admin/AdminAnalyticsTab';
+import AdminReviewsTab from '../components/admin/AdminReviewsTab';
+import AdminMarketingTab from '../components/admin/AdminMarketingTab';
+import AdminPagesTab from '../components/admin/AdminPagesTab';
+import AdminIntegrationsTab from '../components/admin/AdminIntegrationsTab';
+import AdminStaffTab from '../components/admin/AdminStaffTab';
 
 export default function AdminDashboard() {
   const { 
-    user, products, addProduct, updateProduct, deleteProduct, 
+    user, products, addProduct, updateProduct, deleteProduct, toggleProductStock,
     storeDetails, updateStoreDetails, logout, orders, updateOrderStatus, 
     categories: contextCategories, addCategory, deleteCategory, 
     addSubCategory, deleteSubCategory,
     requestPasswordOtp, changeAdminPassword, expenses, addExpense, deleteExpense, getAccountingSummary 
   } = useStore();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('orders');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const fileInputRef = useRef(null);
 
   // Sidebar open/close state (persisted)
@@ -69,8 +83,7 @@ export default function AdminDashboard() {
   // Product form state
   const [editingId, setEditingId] = useState(null);
   const [costPrice, setCostPrice] = useState('');
-  const [supplierName, setSupplierName] = useState('');
-  const [supplierContact, setSupplierContact] = useState('');
+  const [outOfStock, setOutOfStock] = useState(false);
 
   // Accounting & Expenses State (Option 1)
   const [accountingSummary, setAccountingSummary] = useState(null);
@@ -133,6 +146,7 @@ export default function AdminDashboard() {
 
   // Products table filter
   const [filterCategory, setFilterCategory] = useState('All');
+  const [productSearch, setProductSearch] = useState('');
 
   // Order Courier & Tracking Modal State
   const [editingTrackingOrder, setEditingTrackingOrder] = useState(null);
@@ -427,9 +441,19 @@ export default function AdminDashboard() {
   const allCategories = Object.keys(contextCategories || {});
   const allSubCategories = (contextCategories && contextCategories[category]) ? contextCategories[category] : [];
 
-  const filteredProducts = filterCategory === 'All'
-    ? products
-    : products.filter(p => p.category === filterCategory);
+  const filteredProducts = products.filter(p => {
+    const matchesCategory = filterCategory === 'All' || p.category === filterCategory;
+    const q = productSearch.trim().toLowerCase();
+    const matchesSearch = !q || (
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.title && p.title.toLowerCase().includes(q)) ||
+      (p.category && p.category.toLowerCase().includes(q)) ||
+      (p.subCategory && p.subCategory.toLowerCase().includes(q)) ||
+      (p.sku && p.sku.toLowerCase().includes(q)) ||
+      (p.price !== undefined && String(p.price).toLowerCase().includes(q))
+    );
+    return matchesCategory && matchesSearch;
+  });
 
   const compressImage = (file) => {
     return new Promise((resolve) => {
@@ -506,15 +530,14 @@ export default function AdminDashboard() {
 
   const handleEditClick = (product) => {
     setEditingId(product.id);
-    setName(product.name);
-    setPrice(product.price);
-    setCostPrice(product.costPrice || '');
-    setSupplierName(product.supplierName || '');
-    setSupplierContact(product.supplierContact || '');
-    setCategory(product.category);
+    setName(product.name || '');
+    setPrice(product.price || '');
+    setCostPrice(product.costPrice !== undefined && product.costPrice !== null ? String(product.costPrice) : '');
+    setOutOfStock(Boolean(product.outOfStock || product.status === 'out_of_stock'));
+    setCategory(product.category || 'Mobiles');
     setSubCategory(product.subCategory || '');
-    setSale(product.sale);
-    setBestSeller(product.bestSeller || false);
+    setSale(Boolean(product.sale));
+    setBestSeller(Boolean(product.bestSeller));
     setImagesPreview(product.images && product.images.length > 0 ? product.images : (product.image ? [product.image] : []));
     setDescription(product.description || '');
   };
@@ -524,8 +547,8 @@ export default function AdminDashboard() {
     setName('');
     setPrice('');
     setCostPrice('');
-    setSupplierName('');
-    setSupplierContact('');
+    setOutOfStock(false);
+    setCategory('Mobiles');
     setSubCategory('');
     setImagesPreview([]);
     setDescription('');
@@ -546,11 +569,18 @@ export default function AdminDashboard() {
     }
 
     const productPayload = {
-      name, price, category, subCategory, sale, bestSeller, description,
-      image: imagesPreview[0] || '', images: imagesPreview,
-      costPrice: costPrice.trim() || '0',
-      supplierName: supplierName.trim(),
-      supplierContact: supplierContact.trim()
+      name, 
+      price, 
+      costPrice: String(costPrice || '0').trim(),
+      outOfStock: Boolean(outOfStock),
+      status: outOfStock ? 'out_of_stock' : 'active',
+      category, 
+      subCategory, 
+      sale, 
+      bestSeller, 
+      description,
+      image: imagesPreview[0] || '', 
+      images: imagesPreview
     };
 
     if (editingId) {
@@ -749,6 +779,56 @@ export default function AdminDashboard() {
     fontWeight: '500', transition: 'all 0.2s', border: 'none', cursor: 'pointer', width: '100%'
   });
 
+  const renderNavItem = (key, label, iconSvg, badge = null) => {
+    const isActive = activeTab === key;
+    return (
+      <button
+        key={key}
+        type="button"
+        onClick={() => setActiveTab(key)}
+        title={label}
+        style={{
+          width: sidebarOpen ? 'calc(100% - 12px)' : '40px',
+          height: sidebarOpen ? 'auto' : '40px',
+          minHeight: sidebarOpen ? '32px' : '40px',
+          margin: sidebarOpen ? '1px 6px' : '4px auto',
+          padding: sidebarOpen ? '6px 10px' : '0',
+          borderRadius: '8px',
+          backgroundColor: isActive ? 'rgba(255,255,255,0.18)' : 'transparent',
+          color: isActive ? '#ffffff' : '#9ca3af',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: sidebarOpen ? 'space-between' : 'center',
+          transition: 'all 0.15s ease',
+          flexShrink: 0,
+          position: 'relative'
+        }}
+        onMouseEnter={e => !isActive && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)')}
+        onMouseLeave={e => !isActive && (e.currentTarget.style.backgroundColor = 'transparent')}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: sidebarOpen ? '9px' : '0' }}>
+          {iconSvg}
+          {sidebarOpen && <span style={{ fontSize: '11.5px', fontWeight: isActive ? '600' : '500' }}>{label}</span>}
+        </div>
+        {sidebarOpen && badge}
+        {!sidebarOpen && badge && (
+          <span style={{
+            position: 'absolute',
+            top: '5px',
+            right: '5px',
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            backgroundColor: 'var(--orange, #ea580c)',
+            border: '1px solid #000'
+          }} />
+        )}
+      </button>
+    );
+  };
+
   return (
     <div className="admin-layout" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', backgroundColor: '#f8fafc' }}>
       {/* Sleek Admin Topbar (52px, Pure Black) */}
@@ -770,11 +850,24 @@ export default function AdminDashboard() {
           <span style={{ fontWeight: 800, letterSpacing: '0.5px', color: '#f59e0b', fontSize: '13px' }}>I CARE</span>
           <span style={{ color: '#4b5563' }}>/</span>
           <span style={{ fontSize: '13px', fontWeight: 600, color: '#e5e7eb' }}>
+            {activeTab === 'dashboard' && 'Dashboard Overview'}
             {activeTab === 'orders' && 'Customer Orders'}
+            {activeTab === 'customers' && 'Customers Directory'}
+            {activeTab === 'returns' && 'Returns & Refunds'}
+            {activeTab === 'abandoned-carts' && 'Abandoned Carts'}
+            {activeTab === 'products' && 'Products Catalog'}
+            {activeTab === 'categories' && 'Categories Management'}
+            {activeTab === 'discounts' && 'Discounts & Coupons'}
             {activeTab === 'finances' && 'Finances & P&L'}
-            {activeTab === 'products' && 'Products'}
-            {activeTab === 'categories' && 'Categories'}
+            {activeTab === 'payments' && 'Payments & Transactions'}
+            {activeTab === 'shipping' && 'Shipping & Delivery'}
+            {activeTab === 'analytics' && 'Analytics & Reports'}
+            {activeTab === 'reviews' && 'Reviews & Ratings'}
+            {activeTab === 'marketing' && 'Marketing & Campaigns'}
+            {activeTab === 'pages' && 'Pages & Content CMS'}
             {activeTab === 'store' && 'Store Settings'}
+            {activeTab === 'integrations' && 'Integrations'}
+            {activeTab === 'staff' && 'Staff & Permissions'}
             {activeTab === 'security' && 'Security & Password'}
           </span>
         </div>
@@ -954,7 +1047,7 @@ export default function AdminDashboard() {
         <aside
           className="admin-sidebar"
           style={{
-            width: sidebarOpen ? '200px' : '56px',
+            width: sidebarOpen ? '200px' : '58px',
             overflow: 'hidden',
             transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             backgroundColor: '#000000',
@@ -973,7 +1066,8 @@ export default function AdminDashboard() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: sidebarOpen ? 'space-between' : 'center',
-            padding: sidebarOpen ? '0 12px' : '0'
+            padding: sidebarOpen ? '0 12px' : '0',
+            flexShrink: 0
           }}>
             {sidebarOpen ? (
               <>
@@ -1033,184 +1127,109 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          <nav style={{ flex: 1, padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '3px', overflowY: 'auto' }}>
+          <nav
+            className="admin-sidebar-nav"
+            style={{
+              flex: 1,
+              padding: sidebarOpen ? '8px 0' : '10px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: sidebarOpen ? '2px' : '8px',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none'
+            }}
+          >
             
-            <button 
-              onClick={() => setActiveTab('orders')} 
-              title="Customer Orders"
-              style={{
-                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
-                height: sidebarOpen ? 'auto' : '38px',
-                margin: sidebarOpen ? '0 6px' : '2px auto',
-                padding: sidebarOpen ? '8px 12px' : '0',
-                borderRadius: '8px',
-                backgroundColor: activeTab === 'orders' ? 'rgba(255,255,255,0.15)' : 'transparent',
-                color: activeTab === 'orders' ? '#ffffff' : '#9ca3af',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: sidebarOpen ? 'space-between' : 'center',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={e => activeTab !== 'orders' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
-              onMouseLeave={e => activeTab !== 'orders' && (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
-                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Customer Orders</span>}
-              </div>
-              {sidebarOpen && orders.length > 0 && <span style={{ backgroundColor: 'var(--orange, #ea580c)', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: 700 }}>{orders.length}</span>}
-            </button>
+            {/* OVERVIEW */}
+            {sidebarOpen && <div style={{ padding: '6px 12px 2px', fontSize: '9.5px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>OVERVIEW</div>}
+            {renderNavItem('dashboard', 'Dashboard', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            ))}
 
-            <button 
-              onClick={() => setActiveTab('finances')} 
-              title="Finances & P&L"
-              style={{
-                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
-                height: sidebarOpen ? 'auto' : '38px',
-                margin: sidebarOpen ? '0 6px' : '2px auto',
-                padding: sidebarOpen ? '8px 12px' : '0',
-                borderRadius: '8px',
-                backgroundColor: activeTab === 'finances' ? 'rgba(255,255,255,0.15)' : 'transparent',
-                color: activeTab === 'finances' ? '#ffffff' : '#9ca3af',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: sidebarOpen ? 'space-between' : 'center',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={e => activeTab !== 'finances' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
-              onMouseLeave={e => activeTab !== 'finances' && (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
-                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Finances & P&L</span>}
-              </div>
-              {sidebarOpen && <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: 'bold' }}>P&L</span>}
-            </button>
+            {/* SALES & ORDERS */}
+            {sidebarOpen && <div style={{ padding: '8px 12px 2px', fontSize: '9.5px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>SALES & ORDERS</div>}
+            {renderNavItem('orders', 'Customer Orders', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            ), orders.length > 0 && <span style={{ backgroundColor: 'var(--orange, #ea580c)', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: 700 }}>{orders.length}</span>)}
+            {renderNavItem('customers', 'Customers', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            ))}
+            {renderNavItem('returns', 'Returns & Refunds', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            ))}
+            {renderNavItem('abandoned-carts', 'Abandoned Carts', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+            ))}
 
-            <button 
-              onClick={() => setActiveTab('products')} 
-              title="Products"
-              style={{
-                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
-                height: sidebarOpen ? 'auto' : '38px',
-                margin: sidebarOpen ? '0 6px' : '2px auto',
-                padding: sidebarOpen ? '8px 12px' : '0',
-                borderRadius: '8px',
-                backgroundColor: activeTab === 'products' ? 'rgba(255,255,255,0.15)' : 'transparent',
-                color: activeTab === 'products' ? '#ffffff' : '#9ca3af',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={e => activeTab !== 'products' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
-              onMouseLeave={e => activeTab !== 'products' && (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Products</span>}
-              </div>
-            </button>
+            {/* CATALOG & INVENTORY */}
+            {sidebarOpen && <div style={{ padding: '8px 12px 2px', fontSize: '9.5px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>CATALOG & INVENTORY</div>}
+            {renderNavItem('products', 'Products', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            ))}
+            {renderNavItem('categories', 'Categories', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+            ))}
+            {renderNavItem('discounts', 'Discounts & Coupons', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            ))}
 
-            <button 
-              onClick={() => setActiveTab('categories')} 
-              title="Categories"
-              style={{
-                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
-                height: sidebarOpen ? 'auto' : '38px',
-                margin: sidebarOpen ? '0 6px' : '2px auto',
-                padding: sidebarOpen ? '8px 12px' : '0',
-                borderRadius: '8px',
-                backgroundColor: activeTab === 'categories' ? 'rgba(255,255,255,0.15)' : 'transparent',
-                color: activeTab === 'categories' ? '#ffffff' : '#9ca3af',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={e => activeTab !== 'categories' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
-              onMouseLeave={e => activeTab !== 'categories' && (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h7" /></svg>
-                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Categories</span>}
-              </div>
-            </button>
+            {/* FINANCIAL MANAGEMENT */}
+            {sidebarOpen && <div style={{ padding: '8px 12px 2px', fontSize: '9.5px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>FINANCIAL MANAGEMENT</div>}
+            {renderNavItem('finances', 'Finances & P&L', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+            ), <span style={{ backgroundColor: '#10b981', color: 'white', padding: '1px 5px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: 'bold' }}>P&L</span>)}
+            {renderNavItem('payments', 'Payments & Transactions', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            ))}
+            {renderNavItem('shipping', 'Shipping & Delivery', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            ))}
 
-            <button 
-              onClick={() => setActiveTab('store')} 
-              title="Store Settings"
-              style={{
-                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
-                height: sidebarOpen ? 'auto' : '38px',
-                margin: sidebarOpen ? '0 6px' : '2px auto',
-                padding: sidebarOpen ? '8px 12px' : '0',
-                borderRadius: '8px',
-                backgroundColor: activeTab === 'store' ? 'rgba(255,255,255,0.15)' : 'transparent',
-                color: activeTab === 'store' ? '#ffffff' : '#9ca3af',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={e => activeTab !== 'store' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
-              onMouseLeave={e => activeTab !== 'store' && (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Store Settings</span>}
-              </div>
-            </button>
+            {/* GROWTH & MANAGEMENT */}
+            {sidebarOpen && <div style={{ padding: '8px 12px 2px', fontSize: '9.5px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>GROWTH & MANAGEMENT</div>}
+            {renderNavItem('analytics', 'Analytics & Reports', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            ))}
+            {renderNavItem('reviews', 'Reviews & Ratings', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            ))}
+            {renderNavItem('marketing', 'Marketing', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+            ))}
+            {renderNavItem('pages', 'Pages & Content', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            ))}
 
-            <button 
-              onClick={() => setActiveTab('security')} 
-              title="Security & Password"
-              style={{
-                width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
-                height: sidebarOpen ? 'auto' : '38px',
-                margin: sidebarOpen ? '0 6px' : '2px auto',
-                padding: sidebarOpen ? '8px 12px' : '0',
-                borderRadius: '8px',
-                backgroundColor: activeTab === 'security' ? 'rgba(255,255,255,0.15)' : 'transparent',
-                color: activeTab === 'security' ? '#ffffff' : '#9ca3af',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={e => activeTab !== 'security' && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
-              onMouseLeave={e => activeTab !== 'security' && (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                {sidebarOpen && <span style={{ fontSize: '12.5px', fontWeight: '500' }}>Security & Password</span>}
-              </div>
-            </button>
+            {/* CONFIGURATION */}
+            {sidebarOpen && <div style={{ padding: '8px 12px 2px', fontSize: '9.5px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>CONFIGURATION</div>}
+            {renderNavItem('store', 'Store Settings', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            ))}
+            {renderNavItem('integrations', 'Integrations', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-4V6a2 2 0 0 0-4 0v4H6a2 2 0 0 0 0 4h4v4a2 2 0 0 0 4 0v-4h4a2 2 0 0 0 0-4z"/></svg>
+            ))}
+            {renderNavItem('staff', 'Staff & Permissions', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            ))}
+            {renderNavItem('security', 'Security & Password', (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            ))}
 
           </nav>
 
-          <div style={{ padding: '10px 0', borderTop: '1px solid #1f1f1f' }}>
+          <div style={{ padding: sidebarOpen ? '10px 0' : '8px 0', borderTop: '1px solid #1f1f1f', flexShrink: 0 }}>
             <button 
               onClick={handleLogout} 
               title="Logout"
               style={{ 
                 width: sidebarOpen ? 'calc(100% - 12px)' : '38px',
                 height: sidebarOpen ? 'auto' : '38px',
-                margin: sidebarOpen ? '0 6px' : '2px auto',
+                minHeight: sidebarOpen ? '32px' : '38px',
+                margin: sidebarOpen ? '0 6px' : '0 auto',
                 padding: sidebarOpen ? '8px 12px' : '0',
-                borderRadius: '6px', 
+                borderRadius: '8px', 
                 color: '#f87171', 
                 fontWeight: '500', 
                 fontSize: '12.5px', 
@@ -1221,7 +1240,8 @@ export default function AdminDashboard() {
                 transition: 'background 0.2s', 
                 border: 'none', 
                 cursor: 'pointer', 
-                backgroundColor: 'transparent' 
+                backgroundColor: 'transparent',
+                flexShrink: 0
               }} 
               onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)'} 
               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -1234,7 +1254,46 @@ export default function AdminDashboard() {
 
         {/* Main Content Workspace (Wide, Compact 16px 20px padding) */}
         <main className="admin-main" style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', minWidth: 0, width: '100%', boxSizing: 'border-box' }}>
-          {/* ===== ORDERS TAB ===== */}
+          {/* ===== 1. DASHBOARD OVERVIEW ===== */}
+        {activeTab === 'dashboard' && <AdminOverviewTab setActiveTab={setActiveTab} />}
+
+        {/* ===== 2. CUSTOMERS DIRECTORY ===== */}
+        {activeTab === 'customers' && <AdminCustomersTab />}
+
+        {/* ===== 3. RETURNS & REFUNDS ===== */}
+        {activeTab === 'returns' && <AdminReturnsTab />}
+
+        {/* ===== 4. ABANDONED CARTS ===== */}
+        {activeTab === 'abandoned-carts' && <AdminAbandonedCartsTab />}
+
+        {/* ===== 5. DISCOUNTS & COUPONS ===== */}
+        {activeTab === 'discounts' && <AdminDiscountsTab />}
+
+        {/* ===== 7. PAYMENTS & TRANSACTIONS ===== */}
+        {activeTab === 'payments' && <AdminPaymentsTab />}
+
+        {/* ===== 8. SHIPPING & DELIVERY ===== */}
+        {activeTab === 'shipping' && <AdminShippingTab />}
+
+        {/* ===== 9. ANALYTICS & REPORTS ===== */}
+        {activeTab === 'analytics' && <AdminAnalyticsTab />}
+
+        {/* ===== 10. REVIEWS & RATINGS ===== */}
+        {activeTab === 'reviews' && <AdminReviewsTab />}
+
+        {/* ===== 11. MARKETING & CAMPAIGNS ===== */}
+        {activeTab === 'marketing' && <AdminMarketingTab />}
+
+        {/* ===== 12. PAGES & CONTENT (CMS) ===== */}
+        {activeTab === 'pages' && <AdminPagesTab />}
+
+        {/* ===== 13. INTEGRATIONS ===== */}
+        {activeTab === 'integrations' && <AdminIntegrationsTab />}
+
+        {/* ===== 14. STAFF & PERMISSIONS ===== */}
+        {activeTab === 'staff' && <AdminStaffTab />}
+
+        {/* ===== ORDERS TAB ===== */}
         {activeTab === 'orders' && (() => {
           const statusCounts = {
             All: orders.length,
@@ -1524,8 +1583,57 @@ export default function AdminDashboard() {
             
             {/* Products Table */}
             <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '14px 16px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#111827', margin: 0 }}>All Products ({filteredProducts.length})</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#111827', margin: 0 }}>All Products ({filteredProducts.length})</h2>
+                  
+                  {/* Product Search Input */}
+                  <div style={{ position: 'relative', width: '230px' }}>
+                    <input
+                      type="text"
+                      placeholder="Search products, SKU, price..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      style={{
+                        padding: '6px 28px 6px 30px',
+                        borderRadius: '20px',
+                        border: '1px solid #d1d5db',
+                        fontSize: '0.8125rem',
+                        width: '100%',
+                        outline: 'none',
+                        backgroundColor: '#f9fafb',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <svg
+                      style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+                      width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    >
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    {productSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setProductSearch('')}
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: '#9ca3af',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {['All', 'Mobiles', 'Audio', 'Accessories', 'Smart Home', 'Wearables'].map(cat => (
                     <button
@@ -1550,6 +1658,7 @@ export default function AdminDashboard() {
                       <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Product</th>
                       <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Category</th>
                       <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Price & Cost</th>
+                      <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Stock Status</th>
                       <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Margin</th>
                       <th style={{ padding: '8px 10px', color: '#6b7280', fontWeight: '600', fontSize: '11px' }}>Action</th>
                     </tr>
@@ -1578,6 +1687,35 @@ export default function AdminDashboard() {
                           <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
                             Cost: PKR {(parseInt(String(product.costPrice || '0').replace(/[^0-9]/g, ''), 10) || 0).toLocaleString()}
                           </div>
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          {(() => {
+                            const isOut = Boolean(product.outOfStock || product.status === 'out_of_stock');
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => toggleProductStock && toggleProductStock(product.id)}
+                                title="Click to toggle Stock Status"
+                                style={{
+                                  padding: '3px 10px',
+                                  borderRadius: '99px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '700',
+                                  backgroundColor: isOut ? '#fee2e2' : '#dcfce7',
+                                  color: isOut ? '#b91c1c' : '#15803d',
+                                  border: `1px solid ${isOut ? '#fecaca' : '#bbf7d0'}`,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isOut ? '#b91c1c' : '#15803d' }}></span>
+                                {isOut ? 'Out of Stock' : 'In Stock'}
+                              </button>
+                            );
+                          })()}
                         </td>
                         <td style={{ padding: '8px 10px' }}>
                           {(() => {
@@ -1714,53 +1852,66 @@ export default function AdminDashboard() {
                   return null;
                 })()}
 
-                {/* Supplier Procurement Info */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={labelStyle}>Supplier Name (Optional)</label>
-                    <input type="text" value={supplierName} onChange={e => setSupplierName(e.target.value)} style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} placeholder="e.g. Vendor A" />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Supplier Contact / WhatsApp</label>
-                    <input type="text" value={supplierContact} onChange={e => setSupplierContact(e.target.value)} style={inputStyle} onFocus={focusHandler} onBlur={blurHandler} placeholder="e.g. 0300-1234567" />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={labelStyle}>Category</label>
-                    <input 
-                      list="category-options"
-                      value={category} 
-                      onChange={e => { setCategory(e.target.value); setSubCategory(''); }} 
-                      style={inputStyle} 
+                    <label style={labelStyle}>Category *</label>
+                    <select 
+                      value={allCategories.includes(category) ? category : (category ? '__custom__' : '')} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '__custom__') {
+                          const customCat = prompt('Enter new category name:');
+                          if (customCat && customCat.trim()) {
+                            addCategory(customCat.trim());
+                            setCategory(customCat.trim());
+                            setSubCategory('');
+                          }
+                        } else {
+                          setCategory(val);
+                          setSubCategory('');
+                        }
+                      }} 
+                      style={{ ...inputStyle, cursor: 'pointer' }} 
                       onFocus={focusHandler} 
                       onBlur={blurHandler} 
-                      placeholder="Select or type new..." 
                       required
-                    />
-                    <datalist id="category-options">
-                      {allCategories.map(c => <option key={c} value={c} />)}
-                    </datalist>
+                    >
+                      <option value="">-- Select Category --</option>
+                      {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                      <option value="__custom__">+ Add New Category...</option>
+                    </select>
                   </div>
                   <div>
                     <label style={labelStyle}>Sub-Category</label>
-                    <input 
-                      list="sub-category-options"
-                      value={subCategory} 
-                      onChange={e => setSubCategory(e.target.value)} 
-                      style={inputStyle} 
+                    <select 
+                      value={allSubCategories.includes(subCategory) ? subCategory : (subCategory ? '__custom__' : '')} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '__custom__') {
+                          const customSub = prompt(`Enter new sub-category for ${category || 'this category'}:`);
+                          if (customSub && customSub.trim()) {
+                            if (category) addSubCategory(category, customSub.trim());
+                            setSubCategory(customSub.trim());
+                          }
+                        } else {
+                          setSubCategory(val);
+                        }
+                      }} 
+                      style={{ ...inputStyle, cursor: 'pointer' }} 
                       onFocus={focusHandler} 
                       onBlur={blurHandler} 
-                      placeholder="Optional sub-category..." 
-                    />
-                    <datalist id="sub-category-options">
-                      {allSubCategories.map(sc => <option key={sc} value={sc} />)}
-                    </datalist>
+                    >
+                      <option value="">-- Select Sub-Category (Optional) --</option>
+                      {allSubCategories.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+                      {subCategory && !allSubCategories.includes(subCategory) && (
+                        <option value={subCategory}>{subCategory}</option>
+                      )}
+                      <option value="__custom__">+ Add New Sub-Category...</option>
+                    </select>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '20px' }}>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
                     <input type="checkbox" checked={sale} onChange={e => setSale(e.target.checked)} style={{ width: '16px', height: '16px' }} />
                     On Sale
@@ -1768,6 +1919,22 @@ export default function AdminDashboard() {
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
                     <input type="checkbox" checked={bestSeller} onChange={e => setBestSeller(e.target.checked)} style={{ width: '16px', height: '16px' }} />
                     Best Seller
+                  </label>
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+                    fontSize: '0.875rem', fontWeight: '700',
+                    color: outOfStock ? '#b91c1c' : '#374151',
+                    padding: '6px 12px', borderRadius: '6px',
+                    backgroundColor: outOfStock ? '#fee2e2' : '#f8fafc',
+                    border: `1px solid ${outOfStock ? '#fecaca' : '#e2e8f0'}`
+                  }}>
+                    <input 
+                      type="checkbox" 
+                      checked={outOfStock} 
+                      onChange={e => setOutOfStock(e.target.checked)} 
+                      style={{ width: '16px', height: '16px', accentColor: '#dc2626' }} 
+                    />
+                    Out of Stock (Disable Customer Ordering)
                   </label>
                 </div>
 
@@ -2292,377 +2459,8 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ===== FINANCES & P&L TAB (OPTION 1) ===== */}
-        {activeTab === 'finances' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            
-            {/* Top Executive KPI Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-              
-              {/* 1. Delivered Sales */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Delivered Revenue (Cash)
-                </div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#111827', marginTop: '4px' }}>
-                  PKR {(accountingSummary?.deliveredRevenue || 0).toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                  {accountingSummary?.deliveredOrdersCount || 0} delivered orders
-                </div>
-              </div>
-
-              {/* 2. Total COGS */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Delivered COGS (Cost)
-                </div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#111827', marginTop: '4px' }}>
-                  PKR {(accountingSummary?.deliveredCOGS || 0).toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                  Wholesale product cost
-                </div>
-              </div>
-
-              {/* 3. Gross Profit */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Gross Profit (Margin)
-                </div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#111827', marginTop: '4px' }}>
-                  PKR {(accountingSummary?.grossProfit || 0).toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#475569', fontWeight: '600', marginTop: '4px' }}>
-                  {accountingSummary?.grossMarginPercent || 0}% Gross Margin
-                </div>
-              </div>
-
-              {/* 4. Total Operating Expenses */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Operating Expenses
-                </div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#111827', marginTop: '4px' }}>
-                  PKR {(accountingSummary?.totalExpenses || 0).toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                  {expenses.length} logged expenses
-                </div>
-              </div>
-
-              {/* 5. Net Bottom-Line Profit */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Net Operational Profit
-                </div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#111827', marginTop: '4px' }}>
-                  PKR {(accountingSummary?.netProfit || 0).toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                  Gross Profit &minus; All Expenses
-                </div>
-              </div>
-
-            </div>
-
-            {/* Main Finances Content Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '28px', alignItems: 'flex-start' }}>
-              
-              {/* Left Column: Expense Ledger Table */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>
-                    Expense Ledger ({expenses.length})
-                  </h3>
-
-                  {/* Filter chips */}
-                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', maxWidth: '100%' }}>
-                    {['All', 'Marketing & Ads', 'Courier Fees', 'Packaging', 'Rent & Bills', 'Supplier Payment', 'Salaries', 'Other'].map(cat => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setExpenseFilterCat(cat)}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '16px',
-                          border: 'none',
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          backgroundColor: expenseFilterCat === cat ? '#111827' : '#f1f5f9',
-                          color: expenseFilterCat === cat ? '#ffffff' : '#475569'
-                        }}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {expenses.length === 0 ? (
-                  <div style={{ padding: '40px 0', textAlign: 'center', color: '#64748b' }}>
-                    No expenses logged yet. Use the quick logger on the right to track ad spend, flyers, and courier charges!
-                  </div>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600' }}>Date</th>
-                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600' }}>Category</th>
-                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600' }}>Source</th>
-                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600' }}>Note / Vendor</th>
-                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600', textAlign: 'right' }}>Amount (PKR)</th>
-                          <th style={{ padding: '10px 12px', color: '#64748b', fontWeight: '600', textAlign: 'center' }}>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {expenses
-                          .filter(exp => expenseFilterCat === 'All' || exp.category === expenseFilterCat)
-                          .map(exp => (
-                            <tr key={exp.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '12px', color: '#334155', whiteSpace: 'nowrap' }}>{exp.date}</td>
-                              <td style={{ padding: '12px' }}>
-                                <span style={{
-                                  padding: '2px 8px',
-                                  borderRadius: '6px',
-                                  fontSize: '0.75rem',
-                                  fontWeight: '600',
-                                  backgroundColor: '#f1f5f9',
-                                  color: '#334155'
-                                }}>
-                                  {exp.category}
-                                </span>
-                              </td>
-                              <td style={{ padding: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
-                                {exp.paidFrom === 'Bank Account' ? 'Bank' : 'Cash'}
-                              </td>
-                              <td style={{ padding: '12px', color: '#475569', maxWidth: '180px' }}>
-                                {exp.supplierName && <span style={{ fontWeight: '600', color: '#0f172a' }}>{exp.supplierName}: </span>}
-                                <span>{exp.note || '—'}</span>
-                              </td>
-                              <td style={{ padding: '12px', textAlign: 'right', fontWeight: '700', color: '#b91c1c', whiteSpace: 'nowrap' }}>
-                                - PKR {Number(exp.amount).toLocaleString()}
-                              </td>
-                              <td style={{ padding: '12px', textAlign: 'center' }}>
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    if (window.confirm('Delete this expense entry?')) {
-                                      await deleteExpense(exp.id);
-                                      await refreshAccounting();
-                                    }
-                                  }}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '0.9rem' }}
-                                  title="Delete Expense"
-                                >
-                                  Delete
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* Right Column: Quick Expense Logger & Supplier Balances */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                
-                {/* 1. Quick Log Expense Card */}
-                <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a', margin: '0 0 16px 0' }}>
-                    + Log Store Expense
-                  </h3>
-
-                  {/* Fast Preset Chips */}
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                    {[
-                      { label: 'Meta Ads', cat: 'Marketing & Ads', source: 'Bank Account' },
-                      { label: 'Courier Fees', cat: 'Courier Fees', source: 'Cash in Hand' },
-                      { label: 'Flyer Bags', cat: 'Packaging', source: 'Cash in Hand' },
-                      { label: 'Shop Rent', cat: 'Rent & Bills', source: 'Bank Account' },
-                      { label: 'Supplier Pay', cat: 'Supplier Payment', source: 'Bank Account' }
-                    ].map((p, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          setExpenseCategory(p.cat);
-                          setExpensePaidFrom(p.source);
-                        }}
-                        style={{
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          backgroundColor: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          fontSize: '0.72rem',
-                          fontWeight: '600',
-                          color: '#475569',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <form onSubmit={handleExpenseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Date</label>
-                        <input
-                          type="date"
-                          value={expenseDate}
-                          onChange={e => setExpenseDate(e.target.value)}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Paid From</label>
-                        <select
-                          value={expensePaidFrom}
-                          onChange={e => setExpensePaidFrom(e.target.value)}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none' }}
-                        >
-                          <option value="Cash in Hand">Cash in Hand</option>
-                          <option value="Bank Account">Bank Account</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Expense Category</label>
-                      <select
-                        value={expenseCategory}
-                        onChange={e => setExpenseCategory(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none' }}
-                      >
-                        <option value="Marketing & Ads">Marketing & Meta/TikTok Ads</option>
-                        <option value="Courier Fees">Courier Freight & RTO Charges</option>
-                        <option value="Packaging">Packaging Bags & Tape</option>
-                        <option value="Rent & Bills">Shop Rent, Electricity & Bills</option>
-                        <option value="Supplier Payment">Supplier Stock Payment</option>
-                        <option value="Salaries">Staff Salaries & Wages</option>
-                        <option value="Other">Miscellaneous / Other</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Amount (PKR) *</label>
-                      <input
-                        type="number"
-                        placeholder="e.g. 5000"
-                        value={expenseAmount}
-                        onChange={e => setExpenseAmount(e.target.value)}
-                        style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
-                        required
-                        min="1"
-                      />
-                    </div>
-
-                    {expenseCategory === 'Supplier Payment' && (
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Supplier / Vendor Name</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Hall Road Vendor A"
-                          value={expenseSupplier}
-                          onChange={e => setExpenseSupplier(e.target.value)}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
-                        />
-                      </div>
-                    )}
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Description / Note</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 500 flyers or Weekend campaign ads"
-                        value={expenseNote}
-                        onChange={e => setExpenseNote(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isLoggingExpense}
-                      style={{
-                        marginTop: '6px',
-                        padding: '11px',
-                        borderRadius: '8px',
-                        backgroundColor: '#111827',
-                        color: '#ffffff',
-                        border: 'none',
-                        fontWeight: '700',
-                        fontSize: '0.9rem',
-                        cursor: isLoggingExpense ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {isLoggingExpense ? 'Saving Expense...' : 'Record Expense'}
-                    </button>
-                  </form>
-                </div>
-
-                {/* 2. Supplier Procurement Summary Card */}
-                <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a', margin: '0 0 14px 0' }}>
-                    Suppliers Directory
-                  </h3>
-
-                  {(() => {
-                    const supplierMap = {};
-                    products.forEach(p => {
-                      const sName = (p.supplierName || '').trim();
-                      if (sName) {
-                        if (!supplierMap[sName]) {
-                          supplierMap[sName] = { name: sName, contact: p.supplierContact || '', productsCount: 0 };
-                        }
-                        supplierMap[sName].productsCount++;
-                      }
-                    });
-
-                    const suppliers = Object.values(supplierMap);
-                    if (suppliers.length === 0) {
-                      return (
-                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                          No supplier info assigned to products yet. Enter supplier name when adding or editing products in the Products tab.
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {suppliers.map((sup, idx) => (
-                          <div key={idx} style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <div style={{ fontWeight: '700', fontSize: '0.85rem', color: '#0f172a' }}>{sup.name}</div>
-                              {sup.contact && (
-                                <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: '600' }}>
-                                  {sup.contact}
-                                </div>
-                              )}
-                            </div>
-                            <span style={{ fontSize: '0.75rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '2px 8px', borderRadius: '99px', fontWeight: '600' }}>
-                              {sup.productsCount} items
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-        )}
+                {/* ===== UNIFIED FINANCES & MASTER STATEMENT ===== */}
+        {activeTab === 'finances' && <AdminFinancesTab />}
 
         {/* Courier & Tracking Modal */}
         {editingTrackingOrder && (

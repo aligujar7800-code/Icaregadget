@@ -5,9 +5,6 @@ import { useStore } from '../context/StoreContext';
 export default function CustomerChatWidget() {
   const { user } = useStore();
   const location = useLocation();
-  if (location.pathname.startsWith('/admin')) {
-    return null;
-  }
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -99,6 +96,8 @@ export default function CustomerChatWidget() {
         body: JSON.stringify({
           businessId: 'icare',
           role: 'customer',
+          isLoggedIn: Boolean(user && (user.email || user.id)),
+          userId: user?.id || null,
           userEmail: user?.email || '',
           userName: user?.name || '',
           userPhone: user?.phone || '',
@@ -214,6 +213,8 @@ export default function CustomerChatWidget() {
       try { recognitionRef.current.stop(); } catch (_) {}
     }
   };
+
+  if (location.pathname.startsWith('/admin')) return null;
 
   return (
     <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, fontFamily: 'Inter, sans-serif' }}>

@@ -1639,3 +1639,14 @@ button {
 .orange-chat-trigger-btn:active {
   transform: translateY(0) scale(0.97);
 }
+
+/* Sleek Admin Sidebar Navigation & Scrollbar Hiding */
+.admin-sidebar-nav {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.admin-sidebar-nav::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}

@@ -34,7 +34,7 @@ function AppContent() {
       {!isAdmin && <CartSidebar />}
       {!isAdmin && <MobileNavSidebar />}
       <ProductQuickView />
-      <CustomerChatWidget />
+      {!isAdmin && <CustomerChatWidget />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/mobiles" element={<MobilesPage />} />

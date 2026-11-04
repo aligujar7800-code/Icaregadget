@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { pool, initDB } from './db.js';
 import { fallbackStore } from './fallbackStore.js';
 import { sendOtpEmail, generateOtp } from './mailer.js';
+import platformRouter from './routes/platformApi.js';
 import { getEmailRoutingInfo, addDestinationAddress, activateForwardingRule, deleteDestinationAddress } from './cloudflare.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,6 +22,9 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Mount modular eCommerce platform routes
+app.use('/api', platformRouter);
+
 // Helper to format products for frontend
 function formatProduct(p) {
   let images = [];
@@ -29,16 +33,19 @@ function formatProduct(p) {
   } catch (e) {
     images = p.images ? [p.images] : [];
   }
+  const isOutOfStock = Boolean(p.outOfStock || p.status === 'out_of_stock');
   return {
     ...p,
     id: Number(p.id),
     sale: Boolean(p.sale),
     bestSeller: Boolean(p.bestSeller),
-    costPrice: p.costPrice || '0',
-    supplierName: p.supplierName || '',
-    supplierContact: p.supplierContact || '',
+    outOfStock: isOutOfStock,
+    status: isOutOfStock ? 'out_of_stock' : (p.status || 'active'),
+    costPrice: p.costPrice !== undefined && p.costPrice !== null ? String(p.costPrice) : '0',
     images: images,
-    image: p.image || (images.length > 0 ? images[0] : '')
+    image: p.image || (images.length > 0 ? images[0] : ''),
+    category: p.category || 'Mobiles',
+    subCategory: p.subCategory || ''
   };
 }
 
@@ -57,16 +64,22 @@ app.get('/api/products', async (req, res) => {
 
 app.post('/api/products', async (req, res) => {
   try {
-    const { name, price, category, subCategory = '', sale = false, bestSeller = false, image = '', images = [], description = '' } = req.body;
+    const { 
+      name, price, costPrice = '0', outOfStock = false,
+      category, subCategory = '', sale = false, bestSeller = false, 
+      image = '', images = [], description = '' 
+    } = req.body;
     const imagesJson = JSON.stringify(images);
     const mainImg = image || (images.length > 0 ? images[0] : '');
+    const isOut = Boolean(outOfStock);
+    const prodStatus = isOut ? 'out_of_stock' : 'active';
 
     if (isDbConnected) {
       try {
         const [result] = await pool.query(
-          `INSERT INTO products (name, price, category, subCategory, sale, bestSeller, image, images, description)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [name, price, category, subCategory, sale ? 1 : 0, bestSeller ? 1 : 0, mainImg, imagesJson, description]
+          `INSERT INTO products (name, price, costPrice, outOfStock, status, category, subCategory, sale, bestSeller, image, images, description)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [name, price, String(costPrice || '0').trim(), isOut ? 1 : 0, prodStatus, category, subCategory, sale ? 1 : 0, bestSeller ? 1 : 0, mainImg, imagesJson, description]
         );
         const [newProduct] = await pool.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
         return res.status(201).json(formatProduct(newProduct[0]));
@@ -75,7 +88,10 @@ app.post('/api/products', async (req, res) => {
       }
     }
 
-    const created = fallbackStore.addProduct({ name, price, category, subCategory, sale, bestSeller, image: mainImg, images, description });
+    const created = fallbackStore.addProduct({ 
+      name, price, costPrice: String(costPrice || '0').trim(), outOfStock: isOut, status: prodStatus,
+      category, subCategory, sale, bestSeller, image: mainImg, images, description 
+    });
     res.status(201).json(formatProduct(created));
   } catch (err) {
     console.error('Error creating product:', err);
@@ -86,17 +102,23 @@ app.post('/api/products', async (req, res) => {
 app.put('/api/products/:id', async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, price, category, subCategory = '', sale = false, bestSeller = false, image = '', images = [], description = '' } = req.body;
+    const { 
+      name, price, costPrice = '0', outOfStock = false,
+      category, subCategory = '', sale = false, bestSeller = false, 
+      image = '', images = [], description = '' 
+    } = req.body;
     const imagesJson = JSON.stringify(images);
     const mainImg = image || (images.length > 0 ? images[0] : '');
+    const isOut = Boolean(outOfStock);
+    const prodStatus = isOut ? 'out_of_stock' : 'active';
 
     if (isDbConnected) {
       try {
         await pool.query(
           `UPDATE products 
-           SET name = ?, price = ?, category = ?, subCategory = ?, sale = ?, bestSeller = ?, image = ?, images = ?, description = ?
+           SET name = ?, price = ?, costPrice = ?, outOfStock = ?, status = ?, category = ?, subCategory = ?, sale = ?, bestSeller = ?, image = ?, images = ?, description = ?
            WHERE id = ?`,
-          [name, price, category, subCategory, sale ? 1 : 0, bestSeller ? 1 : 0, mainImg, imagesJson, description, id]
+          [name, price, String(costPrice || '0').trim(), isOut ? 1 : 0, prodStatus, category, subCategory, sale ? 1 : 0, bestSeller ? 1 : 0, mainImg, imagesJson, description, id]
         );
         const [updated] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
         if (updated.length > 0) return res.json(formatProduct(updated[0]));
@@ -105,12 +127,44 @@ app.put('/api/products/:id', async (req, res) => {
       }
     }
 
-    const updated = fallbackStore.updateProduct(id, { name, price, category, subCategory, sale, bestSeller, image: mainImg, images, description });
+    const updated = fallbackStore.updateProduct(id, { 
+      name, price, costPrice: String(costPrice || '0').trim(), outOfStock: isOut, status: prodStatus,
+      category, subCategory, sale, bestSeller, image: mainImg, images, description 
+    });
     if (!updated) return res.status(404).json({ error: 'Product not found' });
     res.json(formatProduct(updated));
   } catch (err) {
     console.error('Error updating product:', err);
     res.status(500).json({ error: 'Failed to update product' });
+  }
+});
+
+// Quick toggle Out-of-Stock status
+app.patch('/api/products/:id/toggle-stock', async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (isDbConnected) {
+      const [rows] = await pool.query('SELECT outOfStock, status FROM products WHERE id = ?', [id]);
+      if (rows.length > 0) {
+        const nextVal = (rows[0].outOfStock || rows[0].status === 'out_of_stock') ? 0 : 1;
+        const nextStatus = nextVal === 1 ? 'out_of_stock' : 'active';
+        await pool.query('UPDATE products SET outOfStock = ?, status = ? WHERE id = ?', [nextVal, nextStatus, id]);
+        const [updated] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
+        return res.json(formatProduct(updated[0]));
+      }
+    }
+    const current = fallbackStore.getProducts().find(p => p.id === Number(id));
+    if (current) {
+      const nextVal = !(current.outOfStock || current.status === 'out_of_stock');
+      const updated = fallbackStore.updateProduct(id, {
+        outOfStock: nextVal,
+        status: nextVal ? 'out_of_stock' : 'active'
+      });
+      return res.json(formatProduct(updated));
+    }
+    res.status(404).json({ error: 'Product not found' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -351,6 +405,11 @@ app.post('/api/orders', async (req, res) => {
       date 
     } = req.body;
 
+    const finalSubtotal = String(req.body.subtotal || '0');
+    const finalDiscount = String(req.body.discountAmount || req.body.discount_amount || '0');
+    const finalShipping = String(req.body.shippingCharges || req.body.shipping_charges || '0');
+    const finalPaymentMethod = String(req.body.paymentMethod || req.body.payment_method || 'Cash on Delivery');
+
     const orderId = id || Date.now();
     const orderDate = date || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     const itemsJson = typeof items === 'string' ? items : JSON.stringify(items || []);
@@ -358,10 +417,14 @@ app.post('/api/orders', async (req, res) => {
     if (isDbConnected) {
       try {
         await pool.query(
-          `INSERT INTO orders (id, userName, userEmail, userId, phone, shippingAddress, productName, items, price, status, date) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [orderId, userName, userEmail, userId, phone, shippingAddress, productName, itemsJson, price, status, orderDate]
+          `INSERT INTO orders (id, userName, userEmail, userId, phone, shippingAddress, productName, items, price, status, date, subtotal, discount_amount, shipping_charges, payment_method) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [orderId, userName, userEmail, userId, phone, shippingAddress, productName, itemsJson, price, status, orderDate, finalSubtotal, finalDiscount, finalShipping, finalPaymentMethod]
         );
+
+        if (req.body.couponCode) {
+          pool.query('UPDATE coupons SET times_used = times_used + 1 WHERE UPPER(code) = UPPER(?)', [String(req.body.couponCode).trim()]).catch(() => {});
+        }
 
         const [orders] = await pool.query('SELECT * FROM orders WHERE id = ?', [orderId]);
         const savedOrder = orders[0] || { id: orderId, userName, userEmail, price, status, date: orderDate };
@@ -575,6 +638,7 @@ app.get('/api/accounting/summary', async (req, res) => {
     let ordersList = [];
     let productsList = [];
     let expensesList = [];
+    let refundsList = [];
 
     if (isDbConnected) {
       try {
@@ -590,6 +654,9 @@ app.get('/api/accounting/summary', async (req, res) => {
 
         const [eRows] = await pool.query('SELECT * FROM expenses ORDER BY id DESC');
         expensesList = eRows.map(e => ({ ...e, id: Number(e.id), amount: Number(e.amount) }));
+
+        const [rRows] = await pool.query('SELECT refund_amount FROM returns_refunds WHERE status = "Refunded"');
+        refundsList = rRows;
       } catch (dbErr) {
         console.warn('MySQL accounting summary fetch error:', dbErr.message);
       }
@@ -647,7 +714,8 @@ app.get('/api/accounting/summary', async (req, res) => {
       }
     });
 
-    const grossProfit = totalDeliveredRevenue - totalDeliveredCOGS;
+    const totalRefunds = refundsList.reduce((sum, r) => sum + (Number(r.refund_amount) || 0), 0);
+    const grossProfit = Math.max(0, totalDeliveredRevenue - totalDeliveredCOGS - totalRefunds);
     const grossMarginPercent = totalDeliveredRevenue > 0 
       ? Number(((grossProfit / totalDeliveredRevenue) * 100).toFixed(1)) 
       : 0;
@@ -679,6 +747,7 @@ app.get('/api/accounting/summary', async (req, res) => {
       success: true,
       deliveredRevenue: totalDeliveredRevenue,
       deliveredCOGS: totalDeliveredCOGS,
+      totalRefunds,
       grossProfit,
       grossMarginPercent,
       deliveredOrdersCount,
@@ -1304,7 +1373,8 @@ app.post('/api/chat', async (req, res) => {
     const { 
       message, audio, history = [], role = 'customer', 
       businessId = process.env.BUSINESS_ID || 'icare', 
-      senderName, userEmail, userName, userPhone 
+      senderName, userEmail, userName, userPhone,
+      isLoggedIn = false, userId = null 
     } = req.body;
 
     if ((!message || !message.trim()) && !audio) {
@@ -1315,7 +1385,7 @@ app.post('/api/chat', async (req, res) => {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
-    const effectiveSender = userName || senderName || 'Website Customer';
+    const effectiveSender = userName || senderName || (isLoggedIn ? 'Registered Customer' : 'Guest Customer');
 
     try {
       let n8nResponse = await fetch(n8nWebhookUrl, {
@@ -1328,6 +1398,8 @@ app.post('/api/chat', async (req, res) => {
           channel: 'website',
           businessId,
           role: 'customer',
+          isLoggedIn: Boolean(isLoggedIn),
+          userId: userId || null,
           userEmail: userEmail || '',
           userName: effectiveSender,
           userPhone: userPhone || '',
@@ -1350,6 +1422,8 @@ app.post('/api/chat', async (req, res) => {
               channel: 'website',
               businessId,
               role: 'customer',
+              isLoggedIn: Boolean(isLoggedIn),
+              userId: userId || null,
               userEmail: userEmail || '',
               userName: effectiveSender,
               userPhone: userPhone || '',
@@ -1387,6 +1461,36 @@ app.post('/api/chat', async (req, res) => {
 
     // Smart Local Fallback using live icare_db
     const query = (message || '').toLowerCase();
+
+    // Order tracking fallback
+    if (query.includes('order') || query.includes('track') || query.includes('parcel') || query.includes('shipment')) {
+      if (isLoggedIn && (userEmail || userPhone || userId)) {
+        try {
+          const [orderRows] = await pool.query(
+            `SELECT id, productName, price, status, courier, trackingNumber, date 
+             FROM orders 
+             WHERE (userEmail = ? OR userId = ? OR (phone != '' AND phone = ?)) 
+             ORDER BY id DESC LIMIT 3`,
+            [userEmail || '', String(userId || ''), userPhone || '']
+          );
+          if (orderRows.length > 0) {
+            const list = orderRows.map(o => `• Order #${o.id}: ${o.productName} (${o.status}${o.trackingNumber ? ` via ${o.courier || 'Courier'}, CN: ${o.trackingNumber}` : ''})`).join('\n');
+            return res.json({
+              success: true,
+              reply: `Here are your recent orders, ${effectiveSender}:\n${list}\n\nNeed further assistance with any of these orders?`,
+              business: 'I Care Gadget'
+            });
+          }
+        } catch (_) {}
+      } else if (!isLoggedIn) {
+        return res.json({
+          success: true,
+          reply: "You are currently browsing as a guest. Please log in to your account to view your past orders, or share your specific Order ID and checkout phone number so I can check its delivery status!",
+          business: 'I Care Gadget'
+        });
+      }
+    }
+
     if (query.includes('hour') || query.includes('time') || query.includes('open') || query.includes('location') || query.includes('address')) {
       const [storeRows] = await pool.query('SELECT address, hours, phone FROM store_details LIMIT 1');
       const store = storeRows[0] || { address: 'Kohinoor City', hours: '10 AM - 10 PM', phone: '+92 300 1234567' };
@@ -1397,9 +1501,9 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    const [products] = await pool.query('SELECT name, price, bestSeller, sale FROM products ORDER BY bestSeller DESC, id DESC LIMIT 2');
+    const [products] = await pool.query('SELECT name, price, bestSeller, sale, outOfStock FROM products ORDER BY bestSeller DESC, id DESC LIMIT 4');
     if (products.length > 0) {
-      const items = products.map(p => `${p.name} (PKR ${p.price})`).join(' and ');
+      const items = products.filter(p => !p.outOfStock).slice(0, 2).map(p => `${p.name} (PKR ${p.price})`).join(' and ');
       return res.json({
         success: true,
         reply: `Welcome to I Care Gadget! Some of our top trending items right now are the ${items}. Are you looking for chargers, audio, or phone accessories?`,

@@ -78,7 +78,7 @@ export default function TrackOrderPage() {
 
   const courierStyle = orderData?.courier
     ? getCourierBrandStyle(orderData.courier)
-    : { bg: '#f1f5f9', border: '#cbd5e1', text: '#334155', icon: '📦' };
+    : { bg: '#f1f5f9', border: '#cbd5e1', text: '#334155', icon: '•' };
 
   return (
     <main style={{ backgroundColor: '#f8fafc', minHeight: '90vh', padding: '40px 16px' }}>
@@ -99,7 +99,8 @@ export default function TrackOrderPage() {
             fontWeight: '700',
             marginBottom: '10px'
           }}>
-            📦 Live Order Tracker
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            Live Order Tracker
           </span>
           <h1 style={{ fontSize: '2.2rem', fontWeight: '800', color: '#0f172a', margin: '0 0 10px 0' }}>
             Track Your Order
@@ -260,10 +261,10 @@ export default function TrackOrderPage() {
                 <div style={{ padding: '10px 0 20px 0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', position: 'relative' }}>
                     {[
-                      { step: 1, title: 'Order Placed', desc: 'Received & Confirmed', icon: '📝' },
-                      { step: 2, title: 'Processing', desc: 'Packed at Warehouse', icon: '📦' },
-                      { step: 3, title: 'Dispatched', desc: orderData.courier ? `With ${orderData.courier}` : 'Handed to Courier', icon: '🚚' },
-                      { step: 4, title: 'Delivered', desc: 'Received by Customer', icon: '🎉' }
+                      { step: 1, title: 'Order Placed', desc: 'Received & Confirmed' },
+                      { step: 2, title: 'Processing', desc: 'Packed at Warehouse' },
+                      { step: 3, title: 'Dispatched', desc: orderData.courier ? `With ${orderData.courier}` : 'Handed to Courier' },
+                      { step: 4, title: 'Delivered', desc: 'Received by Customer' }
                     ].map((st, idx) => {
                       const isCompleted = currentStep >= st.step;
                       const isCurrent = currentStep === st.step;
@@ -278,14 +279,15 @@ export default function TrackOrderPage() {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '1.15rem',
+                            fontSize: '1rem',
+                            fontWeight: '700',
                             backgroundColor: isCompleted ? 'var(--orange)' : '#f1f5f9',
                             color: isCompleted ? '#ffffff' : '#94a3b8',
                             border: isCurrent ? '3px solid #ffedd5' : '1px solid #e2e8f0',
                             boxShadow: isCurrent ? '0 0 0 4px rgba(249, 115, 22, 0.2)' : 'none',
                             transition: 'all 0.3s ease'
                           }}>
-                            {isCompleted ? st.icon : st.step}
+                            {isCompleted ? '✓' : st.step}
                           </div>
                           <div style={{ fontSize: '0.85rem', fontWeight: isCompleted ? '700' : '600', color: isCompleted ? '#0f172a' : '#94a3b8' }}>
                             {st.title}
@@ -393,7 +395,7 @@ export default function TrackOrderPage() {
                 alignItems: 'center',
                 gap: '10px'
               }}>
-                <span>🚚</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
                 <span>Your order has been dispatched! Consignment tracking number will be assigned shortly by the courier team.</span>
               </div>
             ) : null}

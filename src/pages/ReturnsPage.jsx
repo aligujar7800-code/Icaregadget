@@ -1,6 +1,10 @@
 import React from 'react';
+import { useStore } from '../context/StoreContext';
 
 export default function ReturnsPage() {
+  const { storePages } = useStore();
+  const customReturns = storePages?.returns;
+
   return (
     <main>
       <section className="section">
@@ -10,9 +14,13 @@ export default function ReturnsPage() {
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', fontSize: '1.125rem', color: 'var(--muted)', lineHeight: '1.7', marginTop: 'var(--space-6)' }}>
-            <p>
-              We want you to be completely satisfied with your purchase from <strong>icaregadget.</strong> If you are not completely satisfied, you can return the product to us.
-            </p>
+            {customReturns ? (
+              <p style={{ whiteSpace: 'pre-line' }}>{customReturns}</p>
+            ) : (
+              <p>
+                We want you to be completely satisfied with your purchase from <strong>icaregadget.</strong> If you are not completely satisfied, you can return the product to us.
+              </p>
+            )}
             
             <h3 style={{ color: 'var(--text)', fontSize: '1.25rem', marginTop: 'var(--space-4)' }}>7-Day Return Policy</h3>
             <p>

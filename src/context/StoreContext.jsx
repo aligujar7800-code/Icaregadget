@@ -233,7 +233,7 @@ export const StoreProvider = ({ children }) => {
         }
         if (orderRes && orderRes.ok) {
           const orderData = await orderRes.json();
-          if (Array.isArray(orderData) && orderData.length > 0) {
+          if (Array.isArray(orderData)) {
             setOrders(orderData);
           }
         }
@@ -396,6 +396,10 @@ export const StoreProvider = ({ children }) => {
 
   // Cart operations
   const addToCart = (product, quantityToAdd = 1) => {
+    if (product.outOfStock || product.status === 'out_of_stock') {
+      alert(`Sorry, "${product.name || 'This item'}" is currently out of stock and cannot be ordered.`);
+      return;
+    }
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -404,6 +408,28 @@ export const StoreProvider = ({ children }) => {
       return [...prev, { ...product, quantity: quantityToAdd }];
     });
     setIsCartOpen(true);
+  };
+
+  const toggleProductStock = async (id) => {
+    try {
+      const res = await fetch(`/api/products/${id}/toggle-stock`, { method: 'PATCH' });
+      if (res.ok) {
+        const updated = await res.json();
+        setProducts(prev => prev.map(p => p.id === id ? updated : p));
+        return updated;
+      }
+    } catch (err) {
+      console.warn('API toggle-stock failed, fallback to local toggle:', err);
+    }
+    const current = products.find(p => p.id === id);
+    if (current) {
+      const nextVal = !(current.outOfStock || current.status === 'out_of_stock');
+      return await updateProduct(id, {
+        ...current,
+        outOfStock: nextVal,
+        status: nextVal ? 'out_of_stock' : 'active'
+      });
+    }
   };
   const removeFromCart = (id) => setCart(prev => prev.filter(item => item.id !== id));
   const updateQuantity = (id, quantity) => {
@@ -701,6 +727,7 @@ export const StoreProvider = ({ children }) => {
       name: item.name,
       price: item.price,
       quantity: item.quantity,
+      category: item.category || '',
       image: item.image || (item.images && item.images[0]) || ''
     }));
 
@@ -715,6 +742,10 @@ export const StoreProvider = ({ children }) => {
       items: orderItems,
       price: `Rs. ${totalAmount.toLocaleString()}`,
       status: 'Pending',
+      paymentMethod: shippingInfo.paymentMethod || 'Cash on Delivery',
+      subtotal: shippingInfo.subtotal || totalAmount,
+      discountAmount: shippingInfo.discountAmount || 0,
+      shippingCharges: shippingInfo.shippingCharges || 0,
       date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
     };
 
@@ -922,7 +953,7 @@ user, login, register, loginWithGoogle, logout,
       verifyAdminOtp, resendAdminOtp, requestPasswordOtp, changeAdminPassword,
       storeDetails, updateStoreDetails, 
       categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory,
-      products, addProduct, updateProduct, deleteProduct,
+      products, addProduct, updateProduct, deleteProduct, toggleProductStock,
       orders, placeOrder, updateOrderStatus, trackOrderPublic, expenses, addExpense, deleteExpense, getAccountingSummary,
       cart, addToCart, removeFromCart, updateQuantity, clearCart,
       isCartOpen, setIsCartOpen,

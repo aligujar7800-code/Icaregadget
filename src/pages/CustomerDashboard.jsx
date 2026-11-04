@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { getCourierTrackingUrl, getCourierBrandStyle } from '../utils/courier';
+import CustomerOverviewTab from '../components/customer/CustomerOverviewTab';
+import CustomerAddressesTab from '../components/customer/CustomerAddressesTab';
+import CustomerReturnsTab from '../components/customer/CustomerReturnsTab';
+import CustomerAppointmentsTab from '../components/customer/CustomerAppointmentsTab';
+import CustomerReceiptModal from '../components/customer/CustomerReceiptModal';
 
 export default function CustomerDashboard() {
   const { 
@@ -17,7 +22,8 @@ export default function CustomerDashboard() {
   const navigate = useNavigate();
 
   // Active tab: 'orders' | 'profile' | 'security'
-  const [activeTab, setActiveTab] = useState('orders');
+  const [activeTab, setActiveTab] = useState('overview');
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [orderFilter, setOrderFilter] = useState('all');
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
 
@@ -149,38 +155,37 @@ export default function CustomerDashboard() {
   };
 
   return (
-    <div style={{ backgroundColor: '#f8fafc', minHeight: '90vh', padding: '32px 16px' }}>
-      <div style={{ maxWidth: '1160px', margin: '0 auto' }}>
+    <div style={{ backgroundColor: '#f8fafc', minHeight: '90vh', padding: '24px 28px' }}>
+      <div style={{ maxWidth: '1440px', width: '100%', margin: '0 auto' }}>
         
         {/* ================= TOP HERO BANNER ================= */}
         <div style={{
           backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          padding: '28px 32px',
-          boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+          borderRadius: '10px',
+          padding: '16px 20px',
           border: '1px solid #e2e8f0',
-          marginBottom: '24px',
+          marginBottom: '16px',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '20px'
+          gap: '16px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{
-              width: '68px',
-              height: '68px',
+              width: '44px',
+              height: '44px',
               borderRadius: '50%',
               backgroundColor: 'var(--orange)',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1.75rem',
-              fontWeight: '800',
+              fontSize: '1.2rem',
+              fontWeight: '700',
               textTransform: 'uppercase',
-              boxShadow: '0 6px 16px rgba(249, 115, 22, 0.35)',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              flexShrink: 0
             }}>
               {user.avatar ? (
                 <img src={user.avatar} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -190,124 +195,103 @@ export default function CustomerDashboard() {
             </div>
 
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <h1 style={{ fontSize: '1.65rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>
                   Welcome back, {user.name || 'Customer'}!
                 </h1>
                 <span style={{
                   backgroundColor: '#dcfce7',
                   color: '#15803d',
-                  fontSize: '0.75rem',
+                  fontSize: '0.72rem',
                   fontWeight: '700',
-                  padding: '3px 10px',
+                  padding: '2px 8px',
                   borderRadius: '20px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px'
                 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                  Verified Account
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  Verified
                 </span>
               </div>
-              <p style={{ color: '#64748b', fontSize: '0.9rem', margin: '4px 0 0 0' }}>
+              <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '2px 0 0 0' }}>
                 {user.email} &bull; Member of icaregadget
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <Link 
               to="/" 
               className="btn btn--outline" 
-              style={{ padding: '10px 18px', fontSize: '0.875rem', borderRadius: '8px' }}
+              style={{ padding: '7px 14px', fontSize: '0.8125rem', borderRadius: '6px' }}
             >
               &larr; Continue Shopping
             </Link>
-            <button 
-              onClick={handleLogout} 
-              style={{
-                padding: '10px 18px',
-                borderRadius: '8px',
-                backgroundColor: '#fee2e2',
-                color: '#b91c1c',
-                border: '1px solid #fecaca',
-                fontWeight: '600',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fecaca'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
-            >
-              Sign Out
-            </button>
           </div>
         </div>
 
         {/* ================= KEY METRICS OVERVIEW ================= */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '16px',
-          marginBottom: '28px'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '10px',
+          marginBottom: '16px'
         }}>
           {/* Card 1: Total Orders */}
           <div style={{
             backgroundColor: '#ffffff',
-            padding: '20px 24px',
-            borderRadius: '14px',
+            padding: '10px 14px',
+            borderRadius: '8px',
             border: '1px solid #e2e8f0',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
             display: 'flex',
             alignItems: 'center',
-            gap: '16px'
+            gap: '12px'
           }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
             </div>
             <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Orders</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#0f172a' }}>{totalOrdersCount}</div>
+              <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Total Orders</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a' }}>{totalOrdersCount}</div>
             </div>
           </div>
 
           {/* Card 2: Active / In Progress */}
           <div style={{
             backgroundColor: '#ffffff',
-            padding: '20px 24px',
-            borderRadius: '14px',
+            padding: '10px 14px',
+            borderRadius: '8px',
             border: '1px solid #e2e8f0',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
             display: 'flex',
             alignItems: 'center',
-            gap: '16px'
+            gap: '12px'
           }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--orange)' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
             <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>In Progress</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#0f172a' }}>{pendingOrdersCount}</div>
+              <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>In Progress</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a' }}>{pendingOrdersCount}</div>
             </div>
           </div>
 
           {/* Card 3: Total Spent */}
           <div style={{
             backgroundColor: '#ffffff',
-            padding: '20px 24px',
-            borderRadius: '14px',
+            padding: '10px 14px',
+            borderRadius: '8px',
             border: '1px solid #e2e8f0',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
             display: 'flex',
             alignItems: 'center',
-            gap: '16px'
+            gap: '12px'
           }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             </div>
             <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Purchases</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0f172a' }}>Rs. {totalSpent.toLocaleString()}</div>
+              <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Total Purchases</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a' }}>Rs. {totalSpent.toLocaleString()}</div>
             </div>
           </div>
 
@@ -316,26 +300,25 @@ export default function CustomerDashboard() {
             onClick={() => setIsCartOpen(true)}
             style={{
               backgroundColor: '#ffffff',
-              padding: '20px 24px',
-              borderRadius: '14px',
+              padding: '10px 14px',
+              borderRadius: '8px',
               border: '1px solid #e2e8f0',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
               display: 'flex',
               alignItems: 'center',
-              gap: '16px',
+              gap: '12px',
               cursor: 'pointer',
               transition: 'border-color 0.2s'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--orange)'}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = '#94a3b8'}
             onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
           >
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#faf5ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9333ea' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
             </div>
             <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Items in Cart</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#0f172a' }}>
-                {cart.reduce((total, i) => total + i.quantity, 0)} <span style={{ fontSize: '0.85rem', color: 'var(--orange)', fontWeight: '600' }}>View &rarr;</span>
+              <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Items in Cart</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a' }}>
+                {cart.reduce((total, i) => total + i.quantity, 0)} <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: '600' }}>View &rarr;</span>
               </div>
             </div>
           </div>
@@ -344,43 +327,134 @@ export default function CustomerDashboard() {
         {/* ================= MAIN TABS LAYOUT ================= */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '260px 1fr',
-          gap: '24px',
+          gridTemplateColumns: '210px 1fr',
+          gap: '14px',
           alignItems: 'start'
         }} className="customer-dashboard-layout">
           
           {/* Dashboard Left Navigation */}
           <aside style={{
             backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            padding: '16px',
+            borderRadius: '10px',
+            padding: '8px',
             border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '6px'
+            gap: '4px'
           }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('overview')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: activeTab === 'overview' ? '#fff7ed' : 'transparent',
+                color: activeTab === 'overview' ? 'var(--orange)' : '#475569',
+                fontWeight: activeTab === 'overview' ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              Overview
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveTab('orders')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                borderRadius: '10px',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
                 border: 'none',
                 backgroundColor: activeTab === 'orders' ? '#fff7ed' : 'transparent',
                 color: activeTab === 'orders' ? 'var(--orange)' : '#475569',
                 fontWeight: activeTab === 'orders' ? '700' : '600',
-                fontSize: '0.95rem',
+                fontSize: '13px',
                 cursor: 'pointer',
                 textAlign: 'left',
-                transition: 'all 0.2s'
+                transition: 'all 0.15s'
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
               My Orders ({totalOrdersCount})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('addresses')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: activeTab === 'addresses' ? '#fff7ed' : 'transparent',
+                color: activeTab === 'addresses' ? 'var(--orange)' : '#475569',
+                fontWeight: activeTab === 'addresses' ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Delivery Book
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('returns')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: activeTab === 'returns' ? '#fff7ed' : 'transparent',
+                color: activeTab === 'returns' ? 'var(--orange)' : '#475569',
+                fontWeight: activeTab === 'returns' ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              Warranty & Returns
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('appointments')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: activeTab === 'appointments' ? '#fff7ed' : 'transparent',
+                color: activeTab === 'appointments' ? 'var(--orange)' : '#475569',
+                fontWeight: activeTab === 'appointments' ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Repair / Demo
             </button>
 
             <button
@@ -389,20 +463,20 @@ export default function CustomerDashboard() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                borderRadius: '10px',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
                 border: 'none',
                 backgroundColor: activeTab === 'profile' ? '#fff7ed' : 'transparent',
                 color: activeTab === 'profile' ? 'var(--orange)' : '#475569',
                 fontWeight: activeTab === 'profile' ? '700' : '600',
-                fontSize: '0.95rem',
+                fontSize: '13px',
                 cursor: 'pointer',
                 textAlign: 'left',
-                transition: 'all 0.2s'
+                transition: 'all 0.15s'
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               Profile & Shipping
             </button>
 
@@ -412,40 +486,40 @@ export default function CustomerDashboard() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                borderRadius: '10px',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
                 border: 'none',
                 backgroundColor: activeTab === 'security' ? '#fff7ed' : 'transparent',
                 color: activeTab === 'security' ? 'var(--orange)' : '#475569',
                 fontWeight: activeTab === 'security' ? '700' : '600',
-                fontSize: '0.95rem',
+                fontSize: '13px',
                 cursor: 'pointer',
                 textAlign: 'left',
-                transition: 'all 0.2s'
+                transition: 'all 0.15s'
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               Password & Security
             </button>
 
-            <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '8px 0' }} />
+            <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '4px 0' }} />
 
             <Link
               to="/track"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                borderRadius: '10px',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
                 color: '#475569',
                 fontWeight: '600',
-                fontSize: '0.95rem',
+                fontSize: '13px',
                 textDecoration: 'none'
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               Track an Order
             </Link>
 
@@ -454,35 +528,89 @@ export default function CustomerDashboard() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                borderRadius: '10px',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
                 color: '#475569',
                 fontWeight: '600',
-                fontSize: '0.95rem',
+                fontSize: '13px',
                 textDecoration: 'none'
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               Book Repair / Demo
             </Link>
+
+            <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '4px 0' }} />
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: '#dc2626',
+                fontWeight: '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sign Out
+            </button>
           </aside>
 
           {/* Dashboard Main Content Area */}
           <main style={{ minWidth: 0 }}>
             
+            {/* ================= TAB 0: OVERVIEW ================= */}
+            {activeTab === 'overview' && (
+              <CustomerOverviewTab
+                user={user}
+                orders={orders}
+                setActiveTab={setActiveTab}
+                setSelectedOrderDetails={setSelectedOrderDetails}
+                setIsCartOpen={setIsCartOpen}
+                cart={cart}
+              />
+            )}
+
+            {/* ================= TAB: SAVED ADDRESSES ================= */}
+            {activeTab === 'addresses' && (
+              <CustomerAddressesTab user={user} />
+            )}
+
+            {/* ================= TAB: RETURNS & WARRANTY ================= */}
+            {activeTab === 'returns' && (
+              <CustomerReturnsTab user={user} orders={orders} />
+            )}
+
+            {/* ================= TAB: APPOINTMENTS ================= */}
+            {activeTab === 'appointments' && (
+              <CustomerAppointmentsTab user={user} />
+            )}
+
             {/* ================= TAB 1: MY ORDERS ================= */}
             {activeTab === 'orders' && (
               <div style={{
                 backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '28px',
+                borderRadius: '10px',
+                padding: '18px 20px',
                 border: '1px solid #e2e8f0',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+                boxShadow: 'none'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <h2 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                    <h2 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>
                       Order History
                     </h2>
                     <p style={{ color: '#64748b', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
@@ -619,8 +747,8 @@ export default function CustomerDashboard() {
                               gap: '10px'
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ fontSize: '1.25rem' }}>
-                                  {order.trackingNumber ? getCourierBrandStyle(order.courier).icon : '🚚'}
+                                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.05)', color: '#0f172a' }}>
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
                                 </span>
                                 <div>
                                   <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#0f172a' }}>
@@ -678,7 +806,10 @@ export default function CustomerDashboard() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', paddingTop: '12px', borderTop: '1px solid #f8fafc' }}>
                             <div style={{ fontSize: '0.825rem', color: '#64748b' }}>
                               {order.shippingAddress ? (
-                                <span>📍 Shipping to: <strong>{order.shippingAddress}</strong></span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                  Shipping to: <strong>{order.shippingAddress}</strong>
+                                </span>
                               ) : (
                                 <span>Receiver: <strong>{order.userName}</strong></span>
                               )}
@@ -732,13 +863,13 @@ export default function CustomerDashboard() {
             {activeTab === 'profile' && (
               <div style={{
                 backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '28px',
+                borderRadius: '10px',
+                padding: '18px 20px',
                 border: '1px solid #e2e8f0',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+                boxShadow: 'none'
               }}>
-                <div style={{ marginBottom: '24px' }}>
-                  <h2 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                <div style={{ marginBottom: '18px' }}>
+                  <h2 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>
                     Customer Profile & Address
                   </h2>
                   <p style={{ color: '#64748b', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
@@ -852,13 +983,13 @@ export default function CustomerDashboard() {
             {activeTab === 'security' && (
               <div style={{
                 backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '28px',
+                borderRadius: '10px',
+                padding: '18px 20px',
                 border: '1px solid #e2e8f0',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+                boxShadow: 'none'
               }}>
-                <div style={{ marginBottom: '24px' }}>
-                  <h2 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                <div style={{ marginBottom: '18px' }}>
+                  <h2 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>
                     Password & Security
                   </h2>
                   <p style={{ color: '#64748b', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
@@ -992,28 +1123,94 @@ export default function CustomerDashboard() {
               </button>
             </div>
 
-            {/* Status Steps */}
-            <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '10px', marginBottom: '20px' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase', color: '#64748b', marginBottom: '10px' }}>
-                Delivery Status
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#16a34a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px', fontSize: '0.8rem' }}>✓</div>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>Placed</span>
+            {/* 5-Step Order Progress Timeline */}
+            {(() => {
+              const st = (selectedOrderDetails.status || 'Pending').toLowerCase();
+              const isConfirmed = st !== 'pending';
+              const isProcessing = st === 'processing' || st === 'shipped' || st === 'delivered';
+              const isShipped = st === 'shipped' || st === 'delivered';
+              const isDelivered = st === 'delivered';
+              const isCancelled = st === 'cancelled';
+
+              return (
+                <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase', color: '#475569' }}>
+                      Delivery Progress Timeline
+                    </div>
+                    {isCancelled ? (
+                      <span style={{ backgroundColor: '#fee2e2', color: '#b91c1c', fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>
+                        Cancelled
+                      </span>
+                    ) : (
+                      <span style={{ backgroundColor: isDelivered ? '#dcfce7' : '#e0f2fe', color: isDelivered ? '#15803d' : '#0369a1', fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>
+                        {selectedOrderDetails.status || 'Pending'}
+                      </span>
+                    )}
+                  </div>
+
+                  {!isCancelled && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+                      <div style={{ textAlign: 'center', zIndex: 1 }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: '#16a34a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px', fontSize: '0.72rem', fontWeight: '700' }}>✓</div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#16a34a' }}>Placed</span>
+                      </div>
+                      <div style={{ flex: 1, height: '2px', backgroundColor: isConfirmed ? '#16a34a' : '#cbd5e1' }} />
+
+                      <div style={{ textAlign: 'center', zIndex: 1 }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: isConfirmed ? '#16a34a' : '#e2e8f0', color: isConfirmed ? 'white' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px', fontSize: '0.72rem', fontWeight: '700' }}>{isConfirmed ? '✓' : '2'}</div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '700', color: isConfirmed ? '#16a34a' : '#64748b' }}>Confirmed</span>
+                      </div>
+                      <div style={{ flex: 1, height: '2px', backgroundColor: isProcessing ? '#16a34a' : '#cbd5e1' }} />
+
+                      <div style={{ textAlign: 'center', zIndex: 1 }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: isProcessing ? '#16a34a' : '#e2e8f0', color: isProcessing ? 'white' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px', fontSize: '0.72rem', fontWeight: '700' }}>{isProcessing ? '✓' : '3'}</div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '700', color: isProcessing ? '#16a34a' : '#64748b' }}>Packed</span>
+                      </div>
+                      <div style={{ flex: 1, height: '2px', backgroundColor: isShipped ? '#16a34a' : '#cbd5e1' }} />
+
+                      <div style={{ textAlign: 'center', zIndex: 1 }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: isShipped ? (isDelivered ? '#16a34a' : 'var(--orange, #ea580c)') : '#e2e8f0', color: isShipped ? 'white' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px', fontSize: '0.72rem', fontWeight: '700' }}>{isDelivered ? '✓' : '4'}</div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '700', color: isShipped ? 'var(--orange, #ea580c)' : '#64748b' }}>Shipped</span>
+                      </div>
+                      <div style={{ flex: 1, height: '2px', backgroundColor: isDelivered ? '#16a34a' : '#cbd5e1' }} />
+
+                      <div style={{ textAlign: 'center', zIndex: 1 }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: isDelivered ? '#16a34a' : '#e2e8f0', color: isDelivered ? 'white' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px', fontSize: '0.72rem', fontWeight: '700' }}>{isDelivered ? '✓' : '5'}</div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '700', color: isDelivered ? '#16a34a' : '#64748b' }}>Delivered</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedOrderDetails.trackingNumber && (
+                    <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                        <span><strong>{selectedOrderDetails.courier || 'Courier Partner'}</strong> &bull; CN: <strong>{selectedOrderDetails.trackingNumber}</strong></span>
+                      </div>
+                      {getCourierTrackingUrl(selectedOrderDetails.courier, selectedOrderDetails.trackingNumber) && (
+                        <a
+                          href={getCourierTrackingUrl(selectedOrderDetails.courier, selectedOrderDetails.trackingNumber)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: '#0f172a',
+                            color: '#ffffff',
+                            fontSize: '0.75rem',
+                            fontWeight: '700',
+                            textDecoration: 'none'
+                          }}
+                        >
+                          Live Track ↗
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div style={{ flex: 1, height: '2px', backgroundColor: '#cbd5e1' }} />
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: selectedOrderDetails.status !== 'Pending' ? '#16a34a' : 'var(--orange)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px', fontSize: '0.8rem' }}>2</div>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>Confirmed</span>
-                </div>
-                <div style={{ flex: 1, height: '2px', backgroundColor: '#cbd5e1' }} />
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: (selectedOrderDetails.status || '').toLowerCase() === 'delivered' ? '#16a34a' : '#e2e8f0', color: (selectedOrderDetails.status || '').toLowerCase() === 'delivered' ? 'white' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px', fontSize: '0.8rem' }}>3</div>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>Delivered</span>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Items Breakdown */}
             <div style={{ marginBottom: '20px' }}>
@@ -1041,10 +1238,42 @@ export default function CustomerDashboard() {
               </div>
             </div>
 
-            {/* Total */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderTop: '2px dashed #e2e8f0', marginBottom: '20px' }}>
-              <span style={{ fontWeight: '700', fontSize: '1rem', color: '#0f172a' }}>Total Amount</span>
-              <span style={{ fontWeight: '800', fontSize: '1.25rem', color: 'var(--orange)' }}>{selectedOrderDetails.price}</span>
+            {/* Total / Breakdown */}
+            <div style={{ padding: '12px 0', borderTop: '2px dashed #e2e8f0', marginBottom: '20px' }}>
+              {(() => {
+                const pNum = (v) => parseInt(String(v || '').replace(/[^0-9]/g, ''), 10) || 0;
+                const grand = pNum(selectedOrderDetails.price);
+                const itemsSub = (selectedOrderDetails.items || []).reduce((acc, it) => acc + (pNum(it.price) * (parseInt(it.quantity || 1, 10) || 1)), 0);
+                const rawSub = pNum(selectedOrderDetails.subtotal);
+                const sub = (rawSub > 0 && rawSub >= grand) ? rawSub : (itemsSub > 0 ? itemsSub : grand);
+                const rawDisc = pNum(selectedOrderDetails.discountAmount || selectedOrderDetails.discount_amount);
+                const disc = rawDisc > 0 ? rawDisc : Math.max(0, sub - grand);
+
+                if (disc > 0) {
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.875rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
+                        <span>Subtotal:</span>
+                        <span>Rs. {sub.toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#15803d', fontWeight: '700' }}>
+                        <span>Promo Discount:</span>
+                        <span>- Rs. {disc.toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                        <span style={{ fontWeight: '700', fontSize: '1rem', color: '#0f172a' }}>Total Amount</span>
+                        <span style={{ fontWeight: '800', fontSize: '1.25rem', color: 'var(--orange)' }}>Rs. {grand.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: '700', fontSize: '1rem', color: '#0f172a' }}>Total Amount</span>
+                    <span style={{ fontWeight: '800', fontSize: '1.25rem', color: 'var(--orange)' }}>{selectedOrderDetails.price}</span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Shipping Info */}
@@ -1055,15 +1284,49 @@ export default function CustomerDashboard() {
               {selectedOrderDetails.shippingAddress && <div><strong>Address:</strong> {selectedOrderDetails.shippingAddress}</div>}
             </div>
 
-            <button
-              onClick={() => setSelectedOrderDetails(null)}
-              className="btn btn--primary"
-              style={{ width: '100%', padding: '12px', borderRadius: '8px', fontWeight: '700' }}
-            >
-              Close Details
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setIsReceiptOpen(true)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  color: '#0f172a',
+                  fontWeight: '700',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                Print Receipt
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedOrderDetails(null)}
+                className="btn btn--primary"
+                style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: '700' }}
+              >
+                Close Details
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Official Printable Receipt Modal */}
+      {isReceiptOpen && selectedOrderDetails && (
+        <CustomerReceiptModal
+          order={selectedOrderDetails}
+          user={user}
+          onClose={() => setIsReceiptOpen(false)}
+        />
       )}
 
     </div>

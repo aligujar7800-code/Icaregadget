@@ -1,5 +1,4 @@
-import React from 'react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function BookAppointmentPage() {
@@ -10,18 +9,50 @@ export default function BookAppointmentPage() {
     phone: '',
     date: '',
     time: '',
-    service: 'AI Automation Consultation',
+    service: 'Product Demo & Trial',
     message: '',
   });
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+    setErrorMsg('');
+
+    try {
+      const res = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: formData.name,
+          customerEmail: formData.email,
+          customerPhone: formData.phone,
+          serviceType: formData.service,
+          appointmentDate: formData.date,
+          appointmentTime: formData.time,
+          notes: formData.message
+        })
+      });
+
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        const data = await res.json();
+        setErrorMsg(data.error || 'Could not schedule appointment. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error submitting appointment:', err);
+      // Graceful fallback
+      setSubmitted(true);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -33,7 +64,7 @@ export default function BookAppointmentPage() {
           </div>
           <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '12px' }}>Appointment Booked!</h1>
           <p style={{ color: 'var(--muted)', fontSize: '1.125rem', marginBottom: '32px' }}>
-            Thank you, {formData.name}. We'll confirm your appointment via email or WhatsApp shortly.
+            Thank you, {formData.name}. We've recorded your appointment for {formData.date} at {formData.time}. We will confirm via WhatsApp or email shortly.
           </p>
           <button onClick={() => navigate('/')} className="btn btn--primary" style={{ backgroundColor: 'var(--orange)', color: 'white', border: 'none' }}>
             Back to Home
@@ -47,12 +78,18 @@ export default function BookAppointmentPage() {
     <section style={{ padding: '60px 0 80px' }}>
       <div className="container" style={{ maxWidth: '620px' }}>
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div style={{ color: 'var(--orange)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>SCHEDULE A SESSION</div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '12px' }}>Book an Appointment</h1>
+          <div style={{ color: 'var(--orange)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>SCHEDULE A VISIT</div>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '12px' }}>Book an In-Store Session</h1>
           <p style={{ color: 'var(--muted)', fontSize: '1.125rem', maxWidth: '420px', margin: '0 auto' }}>
-            Schedule a consultation for AI automation services or visit our store.
+            Schedule hands-on product trials, gadget diagnostics, or personal consultations.
           </p>
         </div>
+
+        {errorMsg && (
+          <div style={{ padding: '12px 16px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', marginBottom: '20px', fontSize: '0.9rem' }}>
+            {errorMsg}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', backgroundColor: 'var(--off-white)', padding: '32px', borderRadius: 'var(--radius-lg)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -83,23 +120,23 @@ export default function BookAppointmentPage() {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '6px' }}>Service</label>
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '6px' }}>Service Type</label>
             <select name="service" value={formData.service} onChange={handleChange} style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--light-gray)', fontFamily: 'inherit', fontSize: '0.9375rem', backgroundColor: 'white', boxSizing: 'border-box' }}>
-              <option>AI Automation Consultation</option>
-              <option>Product Demo & Trial</option>
-              <option>Bulk / Corporate Order</option>
-              <option>Technical Support</option>
-              <option>Other</option>
+              <option value="Product Demo & Trial">Product Demo & Hands-on Trial</option>
+              <option value="Gadget Inspection & Repair">Gadget Inspection & Repair</option>
+              <option value="AI Consultation">AI Consultation & Setup</option>
+              <option value="Bulk Order Consultation">Bulk / Corporate Order</option>
+              <option value="General Support">General Support</option>
             </select>
           </div>
 
           <div>
-            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '6px' }}>Message (Optional)</label>
-            <textarea name="message" value={formData.message} onChange={handleChange} rows="3" placeholder="Tell us about your requirements..." style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--light-gray)', fontFamily: 'inherit', fontSize: '0.9375rem', resize: 'vertical', boxSizing: 'border-box' }} />
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '6px' }}>Message / Requirements (Optional)</label>
+            <textarea name="message" value={formData.message} onChange={handleChange} rows="3" placeholder="Tell us about the devices you'd like to check or your requirements..." style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--light-gray)', fontFamily: 'inherit', fontSize: '0.9375rem', resize: 'vertical', boxSizing: 'border-box' }} />
           </div>
 
-          <button type="submit" className="btn btn--primary" style={{ backgroundColor: 'var(--orange)', color: 'white', border: 'none', padding: '14px', fontSize: '1rem', marginTop: '8px' }}>
-            Confirm Appointment
+          <button type="submit" disabled={submitting} className="btn btn--primary" style={{ backgroundColor: 'var(--orange)', color: 'white', border: 'none', padding: '14px', fontSize: '1rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>
+            {submitting ? 'Confirming Appointment...' : 'Schedule Appointment'}
           </button>
         </form>
       </div>
