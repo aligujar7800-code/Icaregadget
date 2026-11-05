@@ -312,10 +312,16 @@ export default function AdminDashboard() {
     if (!text && !audioBase64) return;
     if (aiLoading) return;
 
-    // 1. If voice audio is provided: Transcribe FIRST so translation appears first on screen!
+    // 1. If voice audio is provided: Show WhatsApp Voice Note Player immediately!
     if (audioBase64) {
-      const initialUserText = text || "Transcribing voice command...";
-      const newMessages = [...aiMessages, { role: 'user', content: initialUserText }];
+      const userVoiceMsg = {
+        role: 'user',
+        content: text || '',
+        audio: audioBase64,
+        duration: 3,
+        isVoice: true
+      };
+      const newMessages = [...aiMessages, userVoiceMsg];
       setAiMessages(newMessages);
       setAiInput('');
       setAiLoading(true);
@@ -337,22 +343,23 @@ export default function AdminDashboard() {
         console.warn('Voice command transcription error:', transErr);
       }
 
-      // Translation appears FIRST!
-      const finalUserText = transcribedText || "[Voice Command]";
+      // Update voice message with transcribed text if available
+      const finalUserText = transcribedText || '';
+      userVoiceMsg.content = finalUserText;
       const messagesWithTranscription = [
         ...aiMessages,
-        { role: 'user', content: finalUserText }
+        { ...userVoiceMsg, content: finalUserText }
       ];
       setAiMessages(messagesWithTranscription);
 
-      // 2. Then other nodes run (call /api/chat/admin with the transcribed text)
+      // 2. Then send text to /api/chat/admin (agent receives text typing!)
       try {
         const res = await fetch('/api/chat/admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            message: finalUserText,
-            history: messagesWithTranscription.slice(-6).map(m => ({ role: m.role, content: m.content }))
+            message: finalUserText || 'Store analytics update',
+            history: messagesWithTranscription.slice(-6).map(m => ({ role: m.role, content: m.content || 'Voice command' }))
           })
         });
         const data = await res.json();
@@ -360,7 +367,7 @@ export default function AdminDashboard() {
 
         setAiMessages([
           ...aiMessages,
-          { role: 'user', content: finalUserText },
+          { ...userVoiceMsg, content: finalUserText },
           { role: 'assistant', content: reply, audio: data.audio }
         ]);
 
@@ -370,7 +377,7 @@ export default function AdminDashboard() {
       } catch (err) {
         setAiMessages([
           ...aiMessages,
-          { role: 'user', content: finalUserText },
+          { ...userVoiceMsg, content: finalUserText },
           { role: 'assistant', content: "Failed to connect to AI server: " + err.message }
         ]);
       } finally {
