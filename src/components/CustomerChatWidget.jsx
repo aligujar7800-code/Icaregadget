@@ -83,6 +83,8 @@ export default function CustomerChatWidget() {
     setLiveTranscript('');
 
     // If voice note: show WhatsApp-style voice player immediately!
+    // Send audio + any browser-transcribed text in ONE /api/chat call.
+    // n8n handles transcription internally via the Transcribe Voice node.
     if (audioBase64) {
       const userVoiceMsg = {
         role: 'user',
@@ -97,32 +99,11 @@ export default function CustomerChatWidget() {
       setLoading(true);
 
       try {
-        let finalText = text;
-        if (!finalText) {
-          try {
-            const transRes = await fetch('/api/chat/transcribe', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ audio: audioBase64 })
-            });
-            if (transRes.ok) {
-              const transData = await transRes.json();
-              finalText = (transData.text || transData.userText || '').trim();
-              if (finalText) {
-                userVoiceMsg.content = finalText;
-                setMessages([...messages, { ...userVoiceMsg, content: finalText }]);
-              }
-            }
-          } catch (transErr) {
-            console.warn('Voice transcription error:', transErr);
-          }
-        }
-
-        const queryToSend = finalText || 'Customer inquiry';
         const history = newMessages
           .slice(-6)
           .map(m => ({ role: m.role, content: m.content || 'Voice message' }));
 
+        // Single call — n8n will detect audio, transcribe it, then respond
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -134,7 +115,8 @@ export default function CustomerChatWidget() {
             userEmail: user?.email || '',
             userName: user?.name || '',
             userPhone: user?.phone || '',
-            message: queryToSend,
+            message: text || '',
+            audio: audioBase64,
             history: history
           })
         });
@@ -142,10 +124,21 @@ export default function CustomerChatWidget() {
         const data = await res.json();
         const reply = data.reply || "I'm having a brief connection issue. Please give me a moment and ask again!";
 
-        setMessages([
-          ...newMessages,
-          { role: 'assistant', content: reply, audio: data.audio }
-        ]);
+        // Update the voice bubble with the transcribed text from n8n
+        const transcribedText = data.userText || text || '';
+        if (transcribedText && transcribedText !== userVoiceMsg.content) {
+          userVoiceMsg.content = transcribedText;
+          setMessages([
+            ...messages,
+            { ...userVoiceMsg, content: transcribedText },
+            { role: 'assistant', content: reply, audio: data.audio }
+          ]);
+        } else {
+          setMessages([
+            ...newMessages,
+            { role: 'assistant', content: reply, audio: data.audio }
+          ]);
+        }
 
         if (data.audio) {
           playVoice(data.audio);
