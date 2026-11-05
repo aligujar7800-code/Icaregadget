@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
+import VoiceNotePlayer from '../components/VoiceNotePlayer';
 import { COURIER_OPTIONS, getCourierTrackingUrl, getCourierBrandStyle } from '../utils/courier';
 import AdminOverviewTab from '../components/admin/AdminOverviewTab';
 import AdminCustomersTab from '../components/admin/AdminCustomersTab';
@@ -311,9 +312,75 @@ export default function AdminDashboard() {
     if (!text && !audioBase64) return;
     if (aiLoading) return;
 
-    // Immediately display the user's spoken or typed words in chat
-    const displayMsg = text || (audioBase64 ? "Transcribing voice command..." : "");
-    const updated = [...aiMessages, { role: 'user', content: displayMsg }];
+    // 1. If voice audio is provided: Transcribe FIRST so translation appears first on screen!
+    if (audioBase64) {
+      const initialUserText = text || "Transcribing voice command...";
+      const newMessages = [...aiMessages, { role: 'user', content: initialUserText }];
+      setAiMessages(newMessages);
+      setAiInput('');
+      setAiLoading(true);
+
+      let transcribedText = text;
+      try {
+        const transRes = await fetch('/api/chat/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio: audioBase64 })
+        });
+        if (transRes.ok) {
+          const transData = await transRes.json();
+          if (transData.text || transData.userText) {
+            transcribedText = (transData.text || transData.userText).trim();
+          }
+        }
+      } catch (transErr) {
+        console.warn('Voice command transcription error:', transErr);
+      }
+
+      // Translation appears FIRST!
+      const finalUserText = transcribedText || "[Voice Command]";
+      const messagesWithTranscription = [
+        ...aiMessages,
+        { role: 'user', content: finalUserText }
+      ];
+      setAiMessages(messagesWithTranscription);
+
+      // 2. Then other nodes run (call /api/chat/admin with the transcribed text)
+      try {
+        const res = await fetch('/api/chat/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: finalUserText,
+            history: messagesWithTranscription.slice(-6).map(m => ({ role: m.role, content: m.content }))
+          })
+        });
+        const data = await res.json();
+        const reply = data.reply || "I'm having a brief connection issue. Please try again.";
+
+        setAiMessages([
+          ...aiMessages,
+          { role: 'user', content: finalUserText },
+          { role: 'assistant', content: reply, audio: data.audio }
+        ]);
+
+        if (data.audio) {
+          playAiVoice(data.audio);
+        }
+      } catch (err) {
+        setAiMessages([
+          ...aiMessages,
+          { role: 'user', content: finalUserText },
+          { role: 'assistant', content: "Failed to connect to AI server: " + err.message }
+        ]);
+      } finally {
+        setAiLoading(false);
+      }
+      return;
+    }
+
+    // Normal text command flow
+    const updated = [...aiMessages, { role: 'user', content: text }];
     setAiMessages(updated);
     setAiInput('');
     setAiLoading(true);
@@ -324,18 +391,15 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
-          audio: audioBase64,
           history: updated.slice(-6).map(m => ({ role: m.role, content: m.content }))
         })
       });
       const data = await res.json();
       const reply = data.reply || "I'm having a brief connection issue. Please try again.";
 
-      // Replace the temporary transcription placeholder with the real transcribed text
-      const finalUserText = data.userText || text || "[Voice Command]";
       setAiMessages([
         ...aiMessages,
-        { role: 'user', content: finalUserText },
+        { role: 'user', content: text },
         { role: 'assistant', content: reply, audio: data.audio }
       ]);
 
@@ -343,10 +407,9 @@ export default function AdminDashboard() {
         playAiVoice(data.audio);
       }
     } catch (err) {
-      const finalUserText = text || "[Voice Command]";
       setAiMessages([
         ...aiMessages,
-        { role: 'user', content: finalUserText },
+        { role: 'user', content: text },
         { role: 'assistant', content: "Failed to connect to AI server: " + err.message }
       ]);
     } finally {

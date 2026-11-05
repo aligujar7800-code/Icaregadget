@@ -36,6 +36,9 @@ export async function initDB() {
   await ensureDatabaseExists();
   const connection = await pool.getConnection();
   try {
+    // Ensure group_concat_max_len
+    try { await connection.query('SET GLOBAL group_concat_max_len = 1000000;'); await connection.query('SET SESSION group_concat_max_len = 1000000;'); } catch (_) {}
+
     // 1. Products table
     await connection.query(`
       CREATE TABLE IF NOT EXISTS products (

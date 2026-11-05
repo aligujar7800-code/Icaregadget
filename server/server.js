@@ -1367,6 +1367,59 @@ function sanitizeAiReply(text, userMessage = '') {
   return cleaned.trim();
 }
 
+// Dedicated Voice Transcription Endpoint (Stage 1 of voice interaction)
+app.post('/api/chat/transcribe', async (req, res) => {
+  try {
+    const { audio } = req.body;
+    if (!audio) {
+      return res.status(400).json({ error: 'Audio payload is required' });
+    }
+
+    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/website-chat';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    const payload = {
+      action: 'transcribe',
+      audio
+    };
+
+    let n8nRes = await fetch(n8nWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    if (n8nRes.status === 404 && n8nWebhookUrl.includes('/webhook/')) {
+      const testUrl = n8nWebhookUrl.replace('/webhook/', '/webhook-test/');
+      try {
+        const testRes = await fetch(testUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        if (testRes.ok) n8nRes = testRes;
+      } catch (_) {}
+    }
+
+    clearTimeout(timeout);
+
+    if (n8nRes.ok) {
+      const data = await n8nRes.json();
+      const text = (data.text || data.userText || data.message || '').trim();
+      return res.json({ success: true, text, userText: text });
+    } else {
+      console.warn('n8n transcribe webhook returned status', n8nRes.status);
+      return res.status(502).json({ error: 'Transcription service unavailable' });
+    }
+  } catch (err) {
+    console.error('Error in /api/chat/transcribe:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // 1. Customer Chat (Website Widget)
 app.post('/api/chat', async (req, res) => {
   try {
@@ -1585,8 +1638,8 @@ app.post('/api/chat/admin', async (req, res) => {
 
       let n8nRes = await fetch(n8nWebhookUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': 'icare_admin_secret_2026_xyz' },
+        body: JSON.stringify({ ...payload, adminSecret: 'icare_admin_secret_2026_xyz' }),
         signal: controller.signal
       });
 

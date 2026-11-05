@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
+import VoiceNotePlayer from './VoiceNotePlayer';
 
 export default function CustomerChatWidget() {
   const { user } = useStore();
@@ -73,16 +74,99 @@ export default function CustomerChatWidget() {
     "Store Location & Hours"
   ];
 
-  const handleSend = async (textToSend, audioBase64 = null) => {
-    const text = (textToSend !== undefined ? textToSend : input).trim();
+  const handleSend = async (textToSend, audioBase64 = null, voiceDuration = 0) => {
+    let text = (textToSend !== undefined ? textToSend : input).trim();
     if (!text && !audioBase64) return;
     if (loading) return;
 
-    // Immediately display the user's spoken or typed words in chat
-    const initialUserText = text || (audioBase64 ? "Transcribing voice..." : "");
-    const newMessages = [...messages, { role: 'user', content: initialUserText }];
-    setMessages(newMessages);
     setInput('');
+    setLiveTranscript('');
+
+    // If voice note: show WhatsApp-style voice player immediately!
+    if (audioBase64) {
+      const userVoiceMsg = {
+        role: 'user',
+        content: text || '',
+        audio: audioBase64,
+        duration: voiceDuration || recordingSeconds || 2,
+        isVoice: true
+      };
+
+      const newMessages = [...messages, userVoiceMsg];
+      setMessages(newMessages);
+      setLoading(true);
+
+      try {
+        let finalText = text;
+        if (!finalText) {
+          try {
+            const transRes = await fetch('/api/chat/transcribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audio: audioBase64 })
+            });
+            if (transRes.ok) {
+              const transData = await transRes.json();
+              finalText = (transData.text || transData.userText || '').trim();
+              if (finalText) {
+                userVoiceMsg.content = finalText;
+                setMessages([...messages, { ...userVoiceMsg, content: finalText }]);
+              }
+            }
+          } catch (transErr) {
+            console.warn('Voice transcription error:', transErr);
+          }
+        }
+
+        const queryToSend = finalText || 'Customer inquiry';
+        const history = newMessages
+          .slice(-6)
+          .map(m => ({ role: m.role, content: m.content || 'Voice message' }));
+
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            businessId: 'icare',
+            role: 'customer',
+            isLoggedIn: Boolean(user && (user.email || user.id)),
+            userId: user?.id || null,
+            userEmail: user?.email || '',
+            userName: user?.name || '',
+            userPhone: user?.phone || '',
+            message: queryToSend,
+            history: history
+          })
+        });
+
+        const data = await res.json();
+        const reply = data.reply || "I'm having a brief connection issue. Please give me a moment and ask again!";
+
+        setMessages([
+          ...newMessages,
+          { role: 'assistant', content: reply, audio: data.audio }
+        ]);
+
+        if (data.audio) {
+          playVoice(data.audio);
+        }
+      } catch (err) {
+        setMessages([
+          ...newMessages,
+          {
+            role: 'assistant',
+            content: "Sorry, I couldn't connect right now. You can also reach our store directly at +92 300 1234567!"
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Normal text message flow (typed by user)
+    const newMessages = [...messages, { role: 'user', content: text }];
+    setMessages(newMessages);
     setLoading(true);
 
     try {
@@ -102,7 +186,6 @@ export default function CustomerChatWidget() {
           userName: user?.name || '',
           userPhone: user?.phone || '',
           message: text,
-          audio: audioBase64,
           history: history
         })
       });
@@ -110,23 +193,17 @@ export default function CustomerChatWidget() {
       const data = await res.json();
       const reply = data.reply || "I'm having a brief connection issue. Please give me a moment and ask again!";
 
-      // Replace the temporary transcription placeholder with the exact text transcribed by AI
-      const finalUserText = data.userText || text || "[Voice Inquiry]";
-      const updatedMessages = [
-        ...messages,
-        { role: 'user', content: finalUserText },
+      setMessages([
+        ...newMessages,
         { role: 'assistant', content: reply, audio: data.audio }
-      ];
-      setMessages(updatedMessages);
+      ]);
 
       if (data.audio) {
         playVoice(data.audio);
       }
     } catch (err) {
-      const finalUserText = text || "[Voice Inquiry]";
       setMessages([
-        ...messages,
-        { role: 'user', content: finalUserText },
+        ...newMessages,
         {
           role: 'assistant',
           content: "Sorry, I couldn't connect right now. You can also reach our store directly at +92 300 1234567!"
@@ -183,9 +260,10 @@ export default function CustomerChatWidget() {
 
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
+        const finalSecs = recordingSeconds || 2;
         reader.onloadend = () => {
           const base64Data = reader.result;
-          handleSend(recognizedSpeech, base64Data);
+          handleSend(recognizedSpeech, base64Data, finalSecs);
           setLiveTranscript('');
         };
       };
@@ -384,29 +462,15 @@ export default function CustomerChatWidget() {
                       whiteSpace: 'pre-line'
                     }}
                   >
-                    {msg.content}
-                    {isAssistant && msg.audio && (
-                      <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #f3f4f6' }}>
-                        <button
-                          type="button"
-                          onClick={() => playVoice(msg.audio)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            background: '#f3f4f6',
-                            border: 'none',
-                            borderRadius: '12px',
-                            padding: '4px 10px',
-                            fontSize: '11px',
-                            cursor: 'pointer',
-                            color: '#374151',
-                            fontWeight: 500
-                          }}
-                        >
-                          {msg.audio ? 'Replay Voice' : 'Listen'}
-                        </button>
-                      </div>
+                    {msg.audio ? (
+                      <VoiceNotePlayer
+                        audioSrc={msg.audio}
+                        duration={msg.duration || 3}
+                        isUser={!isAssistant}
+                        transcription={msg.content}
+                      />
+                    ) : (
+                      msg.content
                     )}
                   </div>
                 </div>
