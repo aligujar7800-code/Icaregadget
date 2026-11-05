@@ -1368,6 +1368,35 @@ function sanitizeAiReply(text, userMessage = '') {
 }
 
 // Dedicated Voice Transcription Endpoint (Stage 1 of voice interaction)
+// Secure Read-Only AI Database Query Endpoint (for n8n AI Agent tool calling)
+app.post('/api/chat/query-db', async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ error: 'Query string is required' });
+    }
+    const cleanQuery = query.trim().replace(/^```sql/i, '').replace(/```$/, '').trim();
+    const firstWord = cleanQuery.split(/\s+/)[0].toUpperCase();
+    if (firstWord !== 'SELECT' && firstWord !== 'SHOW' && firstWord !== 'DESCRIBE') {
+      return res.status(403).json({ error: 'Security violation: Only read-only SELECT queries are permitted.' });
+    }
+    const lower = cleanQuery.toLowerCase();
+    if (lower.includes('otp_codes') || lower.includes('drop ') || lower.includes('delete ') || lower.includes('update ') || lower.includes('insert ')) {
+      return res.status(403).json({ error: 'Security violation: Query contains forbidden operations.' });
+    }
+
+    if (isDbConnected) {
+      const [rows] = await pool.query(cleanQuery);
+      return res.json({ success: true, count: rows.length, data: rows });
+    } else {
+      return res.json({ success: true, count: 0, data: [], note: 'Database currently using fallback store' });
+    }
+  } catch (err) {
+    console.error('Error executing AI DB tool query:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/chat/transcribe', async (req, res) => {
   try {
     const { audio } = req.body;
