@@ -1744,7 +1744,7 @@ initDB()
     console.warn('⚠️ Warning: MySQL database not connected yet (server running in fallback mode):', err.message);
   })
   .finally(() => {
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on http://localhost:${PORT} (listening on 0.0.0.0:${PORT})`);
     });
   });
