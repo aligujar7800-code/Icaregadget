@@ -1393,6 +1393,50 @@ app.post('/api/chat/query-db', async (req, res) => {
       }
     }
 
+    // 2b. Case A2: Admin Executive Metrics & Business Snapshot (Revenue, Profit, Margins, Expenses, Low Stock)
+    if (lower.includes('admin') || lower.includes('overview') || lower.includes('metric') || lower.includes('revenue') || lower.includes('profit') || lower.includes('margin') || lower.includes('kpi') || lower.includes('expense') || lower.includes('inventory') || lower.includes('sales performance') || lower.includes('bestseller') || lower.includes('sale items')) {
+      if (isDbConnected) {
+        const [prodRows] = await pool.query('SELECT id, name, price, costPrice, stock, low_stock_threshold, outOfStock, bestSeller, sale, category, subCategory FROM products ORDER BY id DESC');
+        const [orderStats] = await pool.query(`
+          SELECT 
+            COUNT(*) as totalOrders,
+            SUM(CASE WHEN LOWER(status) = 'delivered' THEN 1 ELSE 0 END) as deliveredOrders,
+            SUM(CASE WHEN LOWER(status) = 'pending' THEN 1 ELSE 0 END) as pendingOrders,
+            COALESCE(SUM(CASE WHEN LOWER(status) = 'delivered' THEN CAST(REGEXP_REPLACE(price, '[^0-9]', '') AS DECIMAL(12,2)) ELSE 0 END), 0) as deliveredRevenue
+          FROM orders
+        `);
+        const [expStats] = await pool.query('SELECT COALESCE(SUM(amount), 0) as totalExpenses, COUNT(*) as expenseCount FROM expenses');
+        const [returnStats] = await pool.query('SELECT COUNT(*) as pendingReturns FROM returns_refunds WHERE LOWER(status) IN ("requested","pending")');
+        const [abandonedStats] = await pool.query('SELECT COUNT(*) as abandonedCount, COALESCE(SUM(cart_value), 0) as abandonedValue FROM abandoned_carts');
+
+        return res.json({
+          success: true,
+          type: 'executive_metrics',
+          data: {
+            catalogSummary: {
+              totalProducts: prodRows.length,
+              productsWithCosts: prodRows.map(p => ({
+                id: p.id,
+                name: p.name,
+                sellingPrice: p.price,
+                costPrice: p.costPrice || '0',
+                category: p.category,
+                stock: p.stock || 0,
+                bestseller: Boolean(p.bestSeller),
+                onSale: Boolean(p.sale),
+                status: p.outOfStock ? 'Out of Stock' : 'In Stock'
+              })),
+              lowStockItems: prodRows.filter(p => p.stock <= (p.low_stock_threshold || 5))
+            },
+            ordersAndRevenue: orderStats[0] || { totalOrders: 0, deliveredOrders: 0, pendingOrders: 0, deliveredRevenue: 0 },
+            expenses: expStats[0] || { totalExpenses: 0, expenseCount: 0 },
+            pendingReturns: returnStats[0]?.pendingReturns || 0,
+            abandonedCarts: abandonedStats[0] || { abandonedCount: 0, abandonedValue: 0 }
+          }
+        });
+      }
+    }
+
     // 3. Case B: AI sent an Order Tracking lookup (e.g. "order 1234", "#54321", "12345")
     const orderMatch = cleanInput.match(/(?:order|track|#|id)\s*([0-9]{3,16})/i) || cleanInput.match(/\b([0-9]{4,16})\b/);
     if (orderMatch) {
