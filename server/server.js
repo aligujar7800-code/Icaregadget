@@ -1367,32 +1367,120 @@ function sanitizeAiReply(text, userMessage = '') {
   return cleaned.trim();
 }
 
-// Dedicated Voice Transcription Endpoint (Stage 1 of voice interaction)
-// Secure Read-Only AI Database Query Endpoint (for n8n AI Agent tool calling)
+// Universal Smart AI Database & Search Endpoint (Permanent resolution for AI tool calling)
 app.post('/api/chat/query-db', async (req, res) => {
   try {
-    const { query } = req.body;
-    if (!query || typeof query !== 'string') {
-      return res.status(400).json({ error: 'Query string is required' });
-    }
-    const cleanQuery = query.trim().replace(/^```sql/i, '').replace(/```$/, '').trim();
-    const firstWord = cleanQuery.split(/\s+/)[0].toUpperCase();
-    if (firstWord !== 'SELECT' && firstWord !== 'SHOW' && firstWord !== 'DESCRIBE') {
-      return res.status(403).json({ error: 'Security violation: Only read-only SELECT queries are permitted.' });
-    }
-    const lower = cleanQuery.toLowerCase();
-    if (lower.includes('otp_codes') || lower.includes('drop ') || lower.includes('delete ') || lower.includes('update ') || lower.includes('insert ')) {
-      return res.status(403).json({ error: 'Security violation: Query contains forbidden operations.' });
+    const rawInput = req.body.query || req.body.sql_query || req.body.search || req.body.keyword || '';
+    if (!rawInput || typeof rawInput !== 'string') {
+      return res.status(400).json({ success: false, error: 'Query or search parameter is required' });
     }
 
-    if (isDbConnected) {
-      const [rows] = await pool.query(cleanQuery);
-      return res.json({ success: true, count: rows.length, data: rows });
-    } else {
-      return res.json({ success: true, count: 0, data: [], note: 'Database currently using fallback store' });
+    const cleanInput = rawInput.trim().replace(/^```sql/i, '').replace(/```$/, '').trim();
+    const lower = cleanInput.toLowerCase();
+
+    // 1. Block destructive operations & sensitive data
+    if (lower.includes('drop ') || lower.includes('delete ') || lower.includes('truncate ') || lower.includes('alter ') || lower.includes('otp_codes') || lower.includes('users.password')) {
+      return res.status(403).json({ success: false, error: 'Forbidden query operations' });
     }
+
+    // 2. Case A: AI passed a valid raw SQL SELECT / SHOW / DESCRIBE query
+    if (lower.startsWith('select') || lower.startsWith('show') || lower.startsWith('describe')) {
+      if (isDbConnected) {
+        const [rows] = await pool.query(cleanInput);
+        return res.json({ success: true, count: rows.length, data: rows });
+      } else {
+        return res.json({ success: true, count: 0, data: [], note: 'Database currently in fallback mode' });
+      }
+    }
+
+    // 3. Case B: AI sent an Order Tracking lookup (e.g. "order 1234", "#54321", "12345")
+    const orderMatch = cleanInput.match(/(?:order|track|#|id)\s*([0-9]{3,16})/i) || cleanInput.match(/\b([0-9]{4,16})\b/);
+    if (orderMatch) {
+      const orderId = orderMatch[1];
+      if (isDbConnected) {
+        const [orderRows] = await pool.query(
+          `SELECT id, productName, price, status, courier, trackingNumber, date, shippingAddress, userName 
+           FROM orders WHERE id = ? LIMIT 1`,
+          [orderId]
+        );
+        if (orderRows.length > 0) {
+          const [activityRows] = await pool.query(
+            `SELECT status, note, created_at FROM order_activity WHERE order_id = ? ORDER BY id ASC`,
+            [orderId]
+          );
+          return res.json({
+            success: true,
+            type: 'order_tracking',
+            data: {
+              ...orderRows[0],
+              timeline: activityRows.map(a => `${a.status} (${a.created_at})`).join(' -> ')
+            }
+          });
+        }
+      }
+      return res.json({ success: true, type: 'order_tracking', data: null, message: `No order found with ID #${orderId}` });
+    }
+
+    // 4. Case C: Store info / hours / location / shipping policies
+    if (lower.includes('hour') || lower.includes('timing') || lower.includes('address') || lower.includes('location') || lower.includes('phone') || lower.includes('contact') || lower.includes('where is')) {
+      if (isDbConnected) {
+        const [storeRows] = await pool.query('SELECT address, hours, phone FROM store_details LIMIT 1');
+        const [shipRows] = await pool.query('SELECT free_shipping_min, default_courier, cod_enabled FROM shipping_settings LIMIT 1');
+        return res.json({
+          success: true,
+          type: 'store_info',
+          data: {
+            store: storeRows[0] || { address: 'Kohinoor City, Faisalabad', hours: '10 AM - 10 PM', phone: '+92 300 1234567' },
+            shipping: shipRows[0] || { free_shipping_min: 3000, cod_enabled: 1 }
+          }
+        });
+      }
+    }
+
+    // 5. Case D: Product Search & Keywords (e.g. "iPhone 20W Charger", "chargers", "mobile", "covers")
+    const words = cleanInput
+      .replace(/[^a-zA-Z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 1 && !['and', 'for', 'the', 'with', 'about', 'want', 'know', 'show', 'please', 'tell'].includes(w.toLowerCase()));
+
+    if (words.length > 0 && isDbConnected) {
+      const conditions = words.map(() => '(name LIKE ? OR category LIKE ? OR subCategory LIKE ? OR description LIKE ?)').join(' OR ');
+      const params = [];
+      words.forEach(w => {
+        const term = `%${w}%`;
+        params.push(term, term, term, term);
+      });
+
+      const [productRows] = await pool.query(
+        `SELECT id, name, price, category, subCategory, description, IF(outOfStock=1, 'Out of Stock', 'In Stock') as availability, IF(bestSeller=1, 'Bestseller', '') as tag 
+         FROM products 
+         WHERE ${conditions} 
+         ORDER BY bestSeller DESC, id DESC LIMIT 8`,
+        params
+      );
+
+      if (productRows.length > 0) {
+        return res.json({ success: true, type: 'products', count: productRows.length, data: productRows });
+      }
+    }
+
+    // Fallback: Return in-stock products
+    if (isDbConnected) {
+      const [topProducts] = await pool.query(
+        `SELECT id, name, price, category, IF(outOfStock=1, 'Out of Stock', 'In Stock') as availability 
+         FROM products WHERE outOfStock = 0 ORDER BY bestSeller DESC, id DESC LIMIT 5`
+      );
+      return res.json({
+        success: true,
+        type: 'general_catalog',
+        message: 'No exact matches found for query, showing current in-stock catalog',
+        data: topProducts
+      });
+    }
+
+    return res.json({ success: true, count: 0, data: [] });
   } catch (err) {
-    console.error('Error executing AI DB tool query:', err.message);
+    console.error('Error in /api/chat/query-db:', err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
