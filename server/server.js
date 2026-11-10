@@ -1370,9 +1370,13 @@ function sanitizeAiReply(text, userMessage = '') {
 // Universal Smart AI Database & Search Endpoint (Permanent resolution for AI tool calling)
 app.post('/api/chat/query-db', async (req, res) => {
   try {
-    const rawInput = req.body.query || req.body.sql_query || req.body.search || req.body.keyword || '';
-    if (!rawInput || typeof rawInput !== 'string') {
-      return res.status(400).json({ success: false, error: 'Query or search parameter is required' });
+    let rawInput = req.body.query ?? req.body.sql_query ?? req.body.search ?? req.body.keyword ?? '';
+    if (typeof rawInput === 'object' && rawInput !== null) {
+      rawInput = rawInput.query || rawInput.search || rawInput.keyword || rawInput.search_or_query || (Object.values(rawInput).find(v => typeof v === 'string') || '');
+    }
+    rawInput = String(rawInput || '').trim();
+    if (!rawInput) {
+      rawInput = 'products'; // Fallback: return in-stock catalog rather than failing with 400
     }
 
     const cleanInput = rawInput.trim().replace(/^```sql/i, '').replace(/```$/, '').trim();
