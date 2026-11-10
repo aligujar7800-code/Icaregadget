@@ -1377,16 +1377,20 @@ app.post('/api/chat/query-db', async (req, res) => {
 
     const cleanInput = rawInput.trim().replace(/^```sql/i, '').replace(/```$/, '').trim();
     const lower = cleanInput.toLowerCase();
+    console.log(`\n🔍 [AI-DB-TOOL] Query received from AI: "${cleanInput}"`);
 
     // 1. Block destructive operations & sensitive data
     if (lower.includes('drop ') || lower.includes('delete ') || lower.includes('truncate ') || lower.includes('alter ') || lower.includes('otp_codes') || lower.includes('users.password')) {
+      console.warn(`⚠️ [AI-DB-TOOL] Blocked destructive query: "${cleanInput}"`);
       return res.status(403).json({ success: false, error: 'Forbidden query operations' });
     }
 
     // 2. Case A: AI passed a valid raw SQL SELECT / SHOW / DESCRIBE query
     if (lower.startsWith('select') || lower.startsWith('show') || lower.startsWith('describe')) {
       if (isDbConnected) {
+        console.log(`📡 [AI-DB-TOOL] Executing Raw SQL: ${cleanInput}`);
         const [rows] = await pool.query(cleanInput);
+        console.log(`✅ [AI-DB-TOOL] Raw SQL returned ${rows.length} rows`);
         return res.json({ success: true, count: rows.length, data: rows });
       } else {
         return res.json({ success: true, count: 0, data: [], note: 'Database currently in fallback mode' });
@@ -1502,6 +1506,8 @@ app.post('/api/chat/query-db', async (req, res) => {
          ORDER BY bestSeller DESC, id DESC LIMIT 8`,
         params
       );
+
+      console.log(`🛒 [AI-DB-TOOL] Product search for [${words.join(', ')}] matched ${productRows.length} items`);
 
       if (productRows.length > 0) {
         return res.json({ success: true, type: 'products', count: productRows.length, data: productRows });
