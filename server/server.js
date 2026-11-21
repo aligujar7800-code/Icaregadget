@@ -1865,7 +1865,7 @@ app.get('/api/health', (req, res) => {
 
 // Serve frontend static assets from dist
 const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
+app.use(express.static(distPath, { maxAge: '7d' }));
 
 // SPA fallback for non-API GET requests
 app.use((req, res, next) => {
@@ -1886,7 +1886,9 @@ initDB()
     console.warn('⚠️ Warning: MySQL database not connected yet (server running in fallback mode):', err.message);
   })
   .finally(() => {
-    app.listen(PORT, '0.0.0.0', () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on http://localhost:${PORT} (listening on 0.0.0.0:${PORT})`);
     });
+    server.keepAliveTimeout = 65000;
+    server.headersTimeout = 66000;
   });
