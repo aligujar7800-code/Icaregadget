@@ -1,0 +1,647 @@
+{
+  "id": "j7bwis5zztsvof7H",
+  "name": "I Care Gadget - Centralized Agentic AI Workflow (Channel & Voice Aware Architecture)",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "website-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6ccc5b4c-70a9-4a84-9634-0c110ec095f1",
+      "name": "Website Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        240
+      ],
+      "webhookId": "46f5f9c5-cb96-43f8-9e47-c0c231d9c7c8"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-webhook",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "c1a2b3d4-wa01-4444-9999-whatsappmsg01",
+      "name": "WhatsApp Messages Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        480
+      ],
+      "webhookId": "icare-whatsapp-incoming"
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "whatsapp-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c1a2b3d4-wa03-4444-9999-verifyhook03",
+      "name": "WhatsApp Verify Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        720
+      ],
+      "webhookId": "icare-whatsapp-verify"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query ? ($json.query['hub.challenge'] || $json.query['hub.challenge']) : ($json['hub.challenge'] || 'OK') }}",
+        "options": {}
+      },
+      "id": "c1a2b3d4-wa04-4444-9999-respondchal04",
+      "name": "Respond WhatsApp Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Boolean($json.body?.entry || $json.entry || $json.body?.object === 'whatsapp_business_account' || $json.object === 'whatsapp_business_account') }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "c1a2b3d4-step1-verify-channel-9999",
+      "name": "Identify Source Channel (WhatsApp vs Website)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        240,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Boolean($json.body ? $json.body.audio : $json.audio) }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "230da82b-15d5-4e23-b039-42c28f6fa308",
+      "name": "Check If Website Voice",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        480,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Boolean(($json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.type || $json.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.type) === 'audio') }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "c1a2b3d4-wa02-4444-9999-filterevents02",
+      "name": "Check If WhatsApp Voice",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        480,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/audio/transcriptions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"openai/whisper-large-v3-turbo\",\n  \"input_audio\": {\n    \"data\": {{ JSON.stringify(($json.body ? $json.body.audio : $json.audio || '').replace(/^data:audio\\/[^;]+;base64,/, '')) }},\n    \"format\": {{ JSON.stringify((($json.body ? $json.body.audio : $json.audio || '').match(/^data:audio\\/([a-zA-Z0-9]+);/)?.[1] || 'webm').replace('mpeg', 'mp3').replace('wave', 'wav').replace('ogg', 'webm')) }}\n  }\n}",
+        "options": {}
+      },
+      "id": "fead3ef2-ea52-4f94-ae8b-42e7d052abbc",
+      "name": "Transcribe Voice (OpenRouter STT)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        160
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "UZtt6oz92DZtPFYz",
+          "name": "OpenAI account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize incoming message & extract user identity securely\nconst currentInput = $input.first()?.json || {};\n\n// Check if triggered from WhatsApp\nconst isWhatsApp = Boolean(\n  currentInput.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0] ||\n  currentInput.entry?.[0]?.changes?.[0]?.value?.messages?.[0] ||\n  currentInput.object === 'whatsapp_business_account' ||\n  currentInput.body?.object === 'whatsapp_business_account'\n);\n\nlet channel = isWhatsApp ? 'whatsapp' : 'website';\nlet role = 'customer';\nlet rawMessage = '';\nlet transcribedText = '';\nlet safeUserEmail = '';\nlet safeUserPhone = '';\nlet safeUserId = '';\nlet userName = '';\nlet whatsappPhoneNumberId = '1464619796732128';\nlet whatsappMessageId = '';\nlet isLoggedIn = false;\nlet history = [];\nlet formattedHistory = '';\nlet storeContext = null;\n\nif (isWhatsApp) {\n  // Extract WhatsApp Cloud API Message Structure\n  const changeValue = currentInput.body?.entry?.[0]?.changes?.[0]?.value || currentInput.entry?.[0]?.changes?.[0]?.value || currentInput;\n  const waContact = changeValue.contacts?.[0] || {};\n  const waMsg = changeValue.messages?.[0] || {};\n  \n  whatsappPhoneNumberId = String(changeValue.metadata?.phone_number_id || '1464619796732128');\n  whatsappMessageId = waMsg.id || '';\n  \n  const rawSenderPhone = waMsg.from || waContact.wa_id || '';\n  safeUserPhone = rawSenderPhone.replace(/[^0-9+]/g, '').slice(0, 20);\n  \n  const rawSenderName = waContact.profile?.name || 'WhatsApp Customer';\n  userName = rawSenderName.replace(/[<>\"';]/g, '').slice(0, 80);\n  \n  if (waMsg.type === 'text') {\n    rawMessage = waMsg.text?.body || '';\n  } else if (waMsg.type === 'interactive') {\n    rawMessage = waMsg.interactive?.button_reply?.title || waMsg.interactive?.list_reply?.title || '';\n  } else if (waMsg.type === 'button') {\n    rawMessage = waMsg.button?.text || '';\n  } else if (waMsg.type === 'audio') {\n    rawMessage = '[Customer sent a voice note]';\n  } else {\n    rawMessage = waMsg.text?.body || '';\n  }\n\n  // Admin WhatsApp Verification (Configure store owner WhatsApp number for admin mode)\n  const adminPhones = ['923001234567'];\n  if (adminPhones.includes(safeUserPhone)) {\n    role = 'admin';\n  }\n} else {\n  // Website Chat Processing\n  let webhookItem = {};\n  try {\n    webhookItem = $('Website Chat Webhook').first()?.json || $('Website Chat Webhook').item?.json || {};\n  } catch (_) {\n    webhookItem = currentInput;\n  }\n  const body = webhookItem.body || webhookItem;\n  const headers = webhookItem.headers || {};\n\n  if (currentInput && currentInput.text && typeof currentInput.text === 'string') {\n    transcribedText = currentInput.text.trim();\n  }\n  if (!transcribedText) {\n    try {\n      const stt = $('Transcribe Voice (OpenRouter STT)').first()?.json;\n      if (stt && stt.text) {\n        transcribedText = String(stt.text).trim();\n      }\n    } catch (_) {}\n  }\n\n  rawMessage = (transcribedText || body.message || '').trim();\n\n  // Role verification & Privilege Escalation Protection\n  const adminSecretHeader = headers['x-admin-secret'] || headers['x-admin-key'] || '';\n  const adminSecretBody = body.adminSecret || body.adminKey || '';\n  const hasServerStoreContext = Boolean(body.storeContext && typeof body.storeContext === 'object' && body.storeContext.orders);\n  const isValidAdminSecret = (adminSecretHeader === 'icare_admin_secret_2026_xyz' || adminSecretBody === 'icare_admin_secret_2026_xyz');\n  const requestedRole = (body.role || 'customer').toLowerCase();\n  role = (requestedRole === 'admin' && (isValidAdminSecret || hasServerStoreContext)) ? 'admin' : 'customer';\n\n  const rawEmail = (body.userEmail || '').trim().toLowerCase();\n  safeUserEmail = rawEmail.replace(/[^a-zA-Z0-9@._+-]/g, '').slice(0, 100);\n\n  const rawPhone = (body.userPhone || '').trim();\n  safeUserPhone = rawPhone.replace(/[^0-9+]/g, '').slice(0, 20);\n\n  const rawUserId = String(body.userId || '').trim();\n  safeUserId = rawUserId.replace(/[^0-9]/g, '').slice(0, 12);\n\n  isLoggedIn = Boolean(body.isLoggedIn && (safeUserEmail || safeUserId));\n\n  const rawUserName = (body.userName || body.senderName || (role === 'admin' ? 'Store Admin' : (isLoggedIn ? 'Registered Customer' : 'Guest Customer'))).trim();\n  userName = rawUserName.replace(/[<>\"';]/g, '').slice(0, 80);\n\n  if (Array.isArray(body.history) && body.history.length > 0) {\n    history = body.history.slice(-8);\n    formattedHistory = history.slice(-6).map(h => {\n      const roleLabel = (h.role === 'user' || h.role === 'human') ? 'User' : 'Assistant';\n      const content = (typeof h.content === 'string' ? h.content : JSON.stringify(h.content || '')).trim();\n      return roleLabel + ': ' + content;\n    }).filter(Boolean).join('\\n');\n  }\n\n  if (role === 'admin') {\n    storeContext = body.storeContext || null;\n  }\n}\n\n// Sanitization & Order Extraction\nconst messageText = rawMessage.replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]/g, '').slice(0, 2000);\nconst orderMatch = messageText.match(/(?:order|id|#|no|track|parcel)\\s*([0-9]{4,16})/i) || messageText.match(/\\b([0-9]{4,16})\\b/);\nconst safeOrderIdQuery = orderMatch ? orderMatch[1].replace(/[^0-9]/g, '').slice(0, 16) : '';\n\nreturn [{\n  json: {\n    channel: channel,\n    businessId: 'icare',\n    role: role,\n    isLoggedIn: isLoggedIn,\n    userId: safeUserId,\n    userEmail: safeUserEmail,\n    userName: userName,\n    userPhone: safeUserPhone,\n    orderIdQuery: safeOrderIdQuery,\n    message: messageText || (role === 'admin' ? 'Store status update' : 'Customer inquiry'),\n    userText: transcribedText || messageText || '',\n    history: history,\n    formattedHistory: formattedHistory,\n    storeContext: storeContext,\n    whatsappPhoneNumberId: whatsappPhoneNumberId,\n    whatsappMessageId: whatsappMessageId\n  }\n}];"
+      },
+      "id": "3e1bc6bb-3ddb-4c6b-88ab-e2e23aac9edc",
+      "name": "Normalize Incoming Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('Normalize Incoming Message').item.json.role }}",
+              "value2": "admin"
+            }
+          ]
+        }
+      },
+      "id": "8af441ef-aff9-4287-85a4-5c4a83561b03",
+      "name": "Check User Role (Admin vs Customer)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Normalize Incoming Message').item.json.formattedHistory ? \"Recent Conversation Context:\\n\" + $('Normalize Incoming Message').item.json.formattedHistory + \"\\n\\nCurrent Request: \" + $('Normalize Incoming Message').item.json.message : $('Normalize Incoming Message').item.json.message }}",
+        "options": {
+          "systemMessage": "You are the Executive AI Business & Database Assistant for the store owner of 'I Care Gadget' — an electronics and mobile accessories retailer based in Kohinoor City, Faisalabad, Pakistan.\n\nADMIN CONTEXT & PRIVILEGES:\n- Role: Store Owner / Verified Administrator\n- Access: Full Executive Privileges & Unrestricted Data Access across all store tables in 'icare_db'\n\nCHAT HISTORY:\n{{ JSON.stringify($('Normalize Incoming Message').item.json.history || []) }}\n\nCOMPLETE DATABASE SCHEMA (22 Accessible Tables in 'icare_db' via 'admin_db_tool'):\n1. `users`: Registered user accounts (id, name, email, role, phone, address, city, status, created_at). Note: Customers have role = 'customer'; Admin accounts have role = 'admin'.\n2. `orders`: Customer orders (id, userName, userEmail, phone, productName, items, price, subtotal, shipping_charges, discount_amount, status, payment_method, payment_status, courier, trackingNumber, date, shippingAddress, created_at).\n3. `products`: Catalog & inventory (id, name, price, costPrice, stock, low_stock_threshold, category, subCategory, bestSeller, sale, outOfStock, status, supplierName, supplierContact, sku, variants, created_at).\n4. `categories`: Product categories & taxonomy (id, name, sub_categories).\n5. `expenses`: Operating expenditures (id, date, category, amount, paidFrom, supplierName, note, created_at).\n6. `coupons`: Promo discount codes (id, code, type, value, min_order_value, max_discount, expiry_date, usage_limit, times_used, is_active).\n7. `reviews`: Customer product reviews & ratings (id, product_name, user_name, user_email, rating, comment, status, admin_reply, created_at).\n8. `returns_refunds`: Returns and refund claims (id, order_id, user_name, user_email, user_phone, product_details, reason, explanation, status, refund_amount, admin_notes, created_at).\n9. `abandoned_carts`: Abandoned checkouts (id, customer_name, customer_email, customer_phone, items, cart_value, recovery_status, last_activity, recovery_token).\n10. `appointments`: Device repair and technical service bookings (id, customer_name, phone, email, appointment_type, preferred_date, preferred_time, device_name, problem_description, status, admin_notes).\n11. `staff_members`: Store management team (id, user_id, name, email, role, permissions, status, created_at).\n12. `addresses`: Saved customer delivery addresses (id, user_id, recipient_name, phone, city, area, street, house_number, landmark, instructions, is_default).\n13. `financial_transactions`: Ledger records (id, order_id, transaction_type, payment_method, transaction_ref, amount, account, status, note, created_at).\n14. `inventory_movements`: Stock change audit logs (id, product_id, product_name, variant_id, previous_quantity, quantity_changed, new_quantity, movement_type, reason, responsible_admin, created_at).\n15. `marketing_campaigns`: Promo campaigns & banners (id, title, type, banner_image, target_url, coupon_code, status, views, clicks, created_at).\n16. `order_activity`: Order audit trail and status milestones (id, order_id, status, note, actor, created_at).\n17. `notifications`: Store & user notification inbox (id, user_id, recipient_role, title, message, type, link, is_read, created_at).\n18. `pages_content`: CMS pages (id, slug, title, content, updated_at).\n19. `shipping_settings`: Courier configurations, city rates, and free shipping minimum threshold (id, couriers, city_rates, free_shipping_min, default_courier, cod_enabled).\n20. `store_details`: Physical showroom address, business hours, and store contact numbers (id, address, hours, phone).\n21. `integrations_settings`: Third-party integration configs (id, integration_key, name, category, config, is_enabled, status).\n22. `audit_logs`: System action audit trail (id, user_id, user_email, action, entity_type, entity_id, details, ip_address, created_at).\n(Note: 'otp_codes' is security-restricted for authentication privacy).\n\nHOW TO QUERY 'admin_db_tool':\n- To fetch data, call 'admin_db_tool' with a clean MySQL read-only SELECT query.\n  Examples:\n  - Count tables or data: \"SELECT count(*) FROM <table>\"\n  - Customers: \"SELECT id, name, email, phone, city, status FROM users WHERE role = 'customer'\"\n  - All users/logins: \"SELECT id, name, email, role, status FROM users\"\n  - Orders: \"SELECT id, userName, productName, price, status, date FROM orders ORDER BY id DESC\"\n  - Financials / Revenue: \"SELECT SUM(price) FROM orders WHERE payment_status = 'paid'\"\n  - Stock / Inventory: \"SELECT id, name, stock, costPrice, price FROM products\"\n  - Overview metrics: \"admin_overview\"\n- You have unrestricted read access across all 22 business tables listed above.\n\nCRITICAL RULES OF ENGAGEMENT (STRICTLY ENFORCED):\n1. ANSWER ONLY WHAT IS ASKED: Be precise, direct, and concise. Do NOT provide unsolicited information.\n   - If asked for a count (e.g. \"how many tables you have access\", \"how many products\"), state the exact number (e.g., \"I have access to 22 store tables in icare_db: ...\") and a clean 1-2 sentence response. Stop there.\n   - If asked for names or a list (e.g. \"give me names of all customers\"), provide ONLY the list of names or clean bullet points. Stop there.\n   - NEVER volunteer marketing campaigns, promotional blueprints, or sourcing lectures unless the admin explicitly asks for marketing ideas, strategy, or advice.\n2. CONVERSATIONAL CONTEXT & SHORT FOLLOW-UPS (CRITICAL):\n   - When the admin asks short follow-up questions, fragments, or single words (e.g., \"and mail\", \"and prices?\", \"what about cancelled?\", \"their phone numbers?\", \"and costs?\"):\n     a. Always resolve the request against the immediate preceding conversation topic.\n     b. Example: If the previous turn was about users/customers and the user asks \"and mail\", it specifically means \"fetch the email addresses of those same users from the database\".\n     c. Example: If the previous turn was about orders and the user asks \"and cancelled\", it specifically means \"fetch cancelled orders from the database\".\n     d. Never say \"I need more information\", \"I cannot fulfill that request\", or ask what they mean. Query the relevant table in 'icare_db' and provide the data directly.\n3. AUTONOMOUS ACTION: If you need data to answer the admin's question, call 'admin_db_tool' immediately with the proper SELECT query. Never ask the admin for data you can query yourself.\n4. EXECUTIVE TONE: Clear, direct, professional, and respectful. No fluff, no filler, no unsolicited essays.",
+          "maxIterations": 8
+        },
+        "agent": "toolsAgent"
+      },
+      "id": "f90b118e-f9fb-4f38-b65b-4aa652f25307",
+      "name": "Admin Executive Advisor",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1380,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.5-flash",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "79c3b889-97ce-480d-a901-ec109b6bfe0c",
+      "name": "Admin Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        40
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "UZtt6oz92DZtPFYz",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Call this tool to run any read-only MySQL SELECT query or retrieve records from all 22 tables in icare_db (users, orders, products, categories, expenses, coupons, reviews, returns_refunds, abandoned_carts, appointments, staff_members, addresses, financial_transactions, inventory_movements, marketing_campaigns, order_activity, notifications, pages_content, shipping_settings, store_details, integrations_settings, audit_logs).",
+        "method": "POST",
+        "url": "http://172.30.0.1:3009/api/chat/query-db",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\n  \"Content-Type\": \"application/json\"\n}",
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "query",
+              "valueProvider": "modelRequired"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "query",
+              "description": "MySQL SELECT query or keyword, e.g. SELECT SUM(price) FROM orders WHERE payment_status = 'paid'",
+              "type": "string"
+            }
+          ]
+        },
+        "optimizeResponse": true,
+        "specifyBody": "keypair"
+      },
+      "id": "8c5cbbab-1fa7-4184-8498-e992943ffa8e",
+      "name": "admin_db_tool",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1480,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Normalize Incoming Message').item.json.formattedHistory ? \"Recent Conversation Context:\\n\" + $('Normalize Incoming Message').item.json.formattedHistory + \"\\n\\nCurrent Request: \" + $('Normalize Incoming Message').item.json.message : $('Normalize Incoming Message').item.json.message }}",
+        "options": {
+          "systemMessage": "You are the official AI Shopping & Customer Support Assistant for 'I Care Gadget' — a premium electronics and mobile accessories retailer based in Kohinoor City, Faisalabad, Pakistan.\n\nCUSTOMER CONTEXT:\n- Role: Customer / Shopper\n- Logged In: {{ $('Normalize Incoming Message').item.json.isLoggedIn ? 'YES' : 'NO' }}\n- Customer Name: {{ $('Normalize Incoming Message').item.json.userName }}\n- Customer Email: {{ $('Normalize Incoming Message').item.json.userEmail }}\n- Customer Phone: {{ $('Normalize Incoming Message').item.json.userPhone }}\n- Extracted Order ID Query: {{ $('Normalize Incoming Message').item.json.orderIdQuery }}\n\nCHAT HISTORY:\n{{ JSON.stringify($('Normalize Incoming Message').item.json.history || []) }}\n\nSTORE DATABASE TOOL ('customer_db_tool'):\nYou have access to the 'customer_db_tool'. Use it to search products, track orders, or check showroom hours and policies.\nYou can pass any product name (e.g. 'iPhone 20W Charger', 'AirPods'), search keyword ('chargers', 'covers'), order ID ('12345'), or SQL SELECT query to the tool.\n\nCRITICAL RULES & HUMAN PERSONA (NEVER VIOLATE):\n1. YOU ARE A FRIENDLY SHOPPING ASSISTANT, NOT A DATABASE INTERPRETER. The user is a customer browsing an online shop.\n2. NEVER EVER MENTION 'SQL', 'SELECT', 'database', 'tables', or technical query syntax to the customer. It is strictly forbidden to say 'I can only execute read-only SELECT queries' or 'Please provide a valid SQL query'.\n3. If a customer mentions a product (e.g. 'iPhone 20W Charger'), immediately call 'customer_db_tool' with that product name, read the returned products, and warmly present the matching items, prices in PKR (Rs.), and availability.\n4. If a customer asks to track an order, call 'customer_db_tool' with their order ID, and explain their delivery status clearly.\n5. CONVERSATIONAL CONTEXT & SHORT FOLLOW-UPS:\n   - When a customer asks a short follow-up question (e.g., \"and price?\", \"how much is it?\", \"what colors do you have?\", \"do you have covers for it?\", \"and shipping?\"):\n     a. Always link the question to the specific product, order, or topic discussed in the immediate previous messages.\n     b. Present the answer warmly, concisely, and helpfully without asking the customer to repeat or clarify what product they are asking about.\n6. If a product is not currently in stock, apologize politely and suggest in-stock alternatives from our catalog.\n7. TONE & LANGUAGES: Warm, helpful, concise (2-4 sentences). Fluently speak English, Urdu, and Roman Urdu ('Mera order kahan hai?', 'Fast charger dikhao').",
+          "maxIterations": 8
+        },
+        "agent": "toolsAgent"
+      },
+      "id": "e325c674-9ad5-40f5-9c4a-3410016040f1",
+      "name": "I Care Customer Assistant",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1380,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.5-flash",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "68de148b-3680-47a2-8f43-d784d3239265",
+      "name": "Customer Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        680
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "UZtt6oz92DZtPFYz",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Call this tool to search products, check prices, track orders, or look up store info and policies. Pass the product name, search keyword, order number, or topic.",
+        "method": "POST",
+        "url": "http://172.30.0.1:3009/api/chat/query-db",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\n  \"Content-Type\": \"application/json\"\n}",
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "query",
+              "valueProvider": "modelRequired"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "query",
+              "description": "Product name, search keyword, or order ID, e.g. iPhone charger, AirPods, phones, order 1234",
+              "type": "string"
+            }
+          ]
+        },
+        "optimizeResponse": true,
+        "specifyBody": "keypair"
+      },
+      "id": "2cece66b-d4c1-46f9-80e5-677dec8f04db",
+      "name": "customer_db_tool",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1480,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('Normalize Incoming Message').item.json.channel }}",
+              "value2": "website"
+            }
+          ]
+        }
+      },
+      "id": "c1a2b3d4-wa05-4444-9999-routeresponse",
+      "name": "Route Response by Channel",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"reply\": {{ JSON.stringify($json.output || $json.reply || ($json.message ? $json.message.content : 'Hello! How can I assist you at I Care Gadget today?')) }},\n  \"audio\": null,\n  \"userText\": {{ JSON.stringify($('Normalize Incoming Message').item.json.message || '') }},\n  \"business\": \"I Care Gadget\"\n}",
+        "options": {}
+      },
+      "id": "9a0e269e-b601-45c9-89ac-da5ee9b5b920",
+      "name": "Respond to Website",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://graph.facebook.com/v21.0/' + ($('Normalize Incoming Message').item.json.whatsappPhoneNumberId || '1464619796732128') + '/messages' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"recipient_type\": \"individual\",\n  \"to\": {{ JSON.stringify($('Normalize Incoming Message').item.json.userPhone) }},\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": false,\n    \"body\": {{ JSON.stringify($json.output || $json.reply || ($json.message ? $json.message.content : 'Hello! Thank you for contacting I Care Gadget.')) }}\n  }\n}",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth"
+      },
+      "id": "c1a2b3d4-wa06-4444-9999-sendmessage06",
+      "name": "Send WhatsApp Message (Meta API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        480
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "whatsappMetaAuth",
+          "name": "WhatsApp Meta API Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Website Chat Webhook": {
+      "main": [
+        [
+          {
+            "node": "Identify Source Channel (WhatsApp vs Website)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Messages Webhook": {
+      "main": [
+        [
+          {
+            "node": "Identify Source Channel (WhatsApp vs Website)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Identify Source Channel (WhatsApp vs Website)": {
+      "main": [
+        [
+          {
+            "node": "Check If WhatsApp Voice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check If Website Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Website Voice": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Voice (OpenRouter STT)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize Incoming Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Voice (OpenRouter STT)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Incoming Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If WhatsApp Voice": {
+      "main": [
+        [
+          {
+            "node": "Normalize Incoming Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize Incoming Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Verify Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond WhatsApp Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Incoming Message": {
+      "main": [
+        [
+          {
+            "node": "Check User Role (Admin vs Customer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check User Role (Admin vs Customer)": {
+      "main": [
+        [
+          {
+            "node": "Admin Executive Advisor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "I Care Customer Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Admin Executive Advisor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "admin_db_tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Admin Executive Advisor",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "I Care Customer Assistant",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "customer_db_tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "I Care Customer Assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Executive Advisor": {
+      "main": [
+        [
+          {
+            "node": "Route Response by Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "I Care Customer Assistant": {
+      "main": [
+        [
+          {
+            "node": "Route Response by Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Response by Channel": {
+      "main": [
+        [
+          {
+            "node": "Respond to Website",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send WhatsApp Message (Meta API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}
