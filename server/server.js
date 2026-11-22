@@ -1858,6 +1858,62 @@ app.post('/api/chat/admin', async (req, res) => {
   }
 });
 
+
+// ==========================================
+// WhatsApp Meta Webhook Bridge (Forwarder to local n8n on RDP)
+// ==========================================
+// 1. GET verification handshake from Meta
+app.get('/api/whatsapp/webhook', async (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'icare_wa_secret_2026';
+
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log('✅ [WhatsApp Webhook] Verification challenge passed successfully');
+    return res.status(200).send(challenge);
+  }
+
+  // Also fallback forward to local n8n verify node
+  try {
+    const n8nBase = process.env.N8N_BASE_URL || 'http://localhost:5678';
+    const n8nUrl = `${n8nBase}/webhook/whatsapp-webhook?${new URLSearchParams(req.query).toString()}`;
+    const n8nRes = await fetch(n8nUrl);
+    const text = await n8nRes.text();
+    return res.status(n8nRes.status).send(text);
+  } catch (err) {
+    console.warn('⚠️ [WhatsApp Webhook] Verification mismatch or n8n unreachable:', err.message);
+    return res.status(403).send('Forbidden');
+  }
+});
+
+// 2. POST incoming customer WhatsApp messages forwarded to local n8n
+app.post('/api/whatsapp/webhook', async (req, res) => {
+  try {
+    const n8nBase = process.env.N8N_BASE_URL || 'http://localhost:5678';
+    const n8nUrl = `${n8nBase}/webhook/whatsapp-webhook`;
+
+    // Immediately acknowledge Meta with 200 OK so Meta never times out
+    res.status(200).json({ status: 'received' });
+
+    // Asynchronously forward to local n8n on RDP
+    fetch(n8nUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-forwarded-by': 'icare-express-bridge'
+      },
+      body: JSON.stringify(req.body)
+    }).catch(err => {
+      console.warn('⚠️ [WhatsApp Webhook] Forward to n8n failed:', err.message);
+    });
+  } catch (err) {
+    console.error('Error in /api/whatsapp/webhook POST:', err);
+    if (!res.headersSent) res.status(500).send('Error');
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
