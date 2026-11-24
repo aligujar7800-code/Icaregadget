@@ -1894,20 +1894,40 @@ app.post('/api/whatsapp/webhook', async (req, res) => {
     const n8nBase = process.env.N8N_BASE_URL || 'http://localhost:5678';
     const n8nUrl = `${n8nBase}/webhook/whatsapp-webhook`;
 
+    console.log('📩 [WhatsApp Webhook] Incoming message event received from Meta');
+
     // Immediately acknowledge Meta with 200 OK so Meta never times out
     res.status(200).json({ status: 'received' });
 
-    // Asynchronously forward to local n8n on RDP
-    fetch(n8nUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-forwarded-by': 'icare-express-bridge'
-      },
-      body: JSON.stringify(req.body)
-    }).catch(err => {
-      console.warn('⚠️ [WhatsApp Webhook] Forward to n8n failed:', err.message);
-    });
+    // Asynchronously forward to local n8n on RDP (with fallback to test webhook)
+    (async () => {
+      try {
+        let n8nRes = await fetch(n8nUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-forwarded-by': 'icare-express-bridge'
+          },
+          body: JSON.stringify(req.body)
+        });
+
+        if (n8nRes.status === 404) {
+          const testUrl = `${n8nBase}/webhook-test/whatsapp-webhook`;
+          try {
+            const testRes = await fetch(testUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-forwarded-by': 'icare-express-bridge' },
+              body: JSON.stringify(req.body)
+            });
+            if (testRes.ok) n8nRes = testRes;
+          } catch (_) {}
+        }
+
+        console.log(`📡 [WhatsApp Webhook] Forwarded to n8n, response status: ${n8nRes.status}`);
+      } catch (fwdErr) {
+        console.warn('⚠️ [WhatsApp Webhook] Forward to n8n failed:', fwdErr.message);
+      }
+    })();
   } catch (err) {
     console.error('Error in /api/whatsapp/webhook POST:', err);
     if (!res.headersSent) res.status(500).send('Error');
